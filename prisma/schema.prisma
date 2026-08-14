@@ -1,0 +1,195 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Identity & Access ────────────────────────────────────────────────
+//
+// Two working roles per the spec (§6) plus a lightweight ADMIN for
+// department/employee/user maintenance (§26 — "if required", kept minimal:
+// no template management UI, templates are centralized in code per §21).
+
+enum UserRole {
+  DEPARTMENT_HEAD // scoped to exactly one department (own employees/submissions only)
+  HR // all departments, review/confirm/send
+  ADMIN // department/employee/user maintenance
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         UserRole
+
+  // Required and meaningful only for DEPARTMENT_HEAD — this is the actual
+  // backend enforcement boundary for "can only see their own department"
+  // (§8), not just a UI filter.
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(true)
+  failedLoginAttempts Int      @default(0)
+  lockedUntil        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  submissions        FeedbackSubmission[] @relation("SubmittedBy")
+  confirmedSubmissions FeedbackSubmission[] @relation("ConfirmedBy")
+  auditEvents        AuditEvent[]
+}
+
+model Department {
+  id   String @id @default(cuid())
+  name String @unique
+  code String @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  employees   Employee[]
+  submissions FeedbackSubmission[]
+}
+
+model Employee {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  isActive     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  submissions FeedbackSubmission[]
+
+  @@index([departmentId])
+}
+
+// ── Feedback workflow ────────────────────────────────────────────────
+//
+// A/B/C are predefined EMAIL TEMPLATE TYPES, not performance grades (§4).
+
+enum TemplateType {
+  A
+  B
+  C
+}
+
+enum SubmissionStatus {
+  SUBMITTED
+  CONFIRMED
+  SENT
+}
+
+model FeedbackSubmission {
+  id String @id @default(cuid())
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  // Denormalized snapshots of employee/department identity at submission
+  // time (§25 — "prefer relationships... historical info may still be
+  // stored where required for audit/history"): if an employee is later
+  // renamed, moved department, or deactivated, a past submission's record
+  // and the email that was actually sent must not silently change.
+  employeeName  String
+  employeeEmail String
+
+  departmentId   String
+  department     Department @relation(fields: [departmentId], references: [id])
+  departmentName String
+
+  departmentHeadId   String
+  departmentHead     User   @relation("SubmittedBy", fields: [departmentHeadId], references: [id])
+  departmentHeadName String
+
+  templateType TemplateType
+  feedback     String
+
+  // The calendar month this review covers, derived automatically from
+  // submittedAt (first-of-month) — deliberately NOT a form field per §7's
+  // exact minimal mockup (Employee / Email / Template / Feedback only).
+  // Drives the templates' {{month_name}}/{{year}} and lets HR's dashboard
+  // scope "how many submitted this month" (§14).
+  reviewPeriod DateTime @db.Date
+
+  status SubmissionStatus @default(SUBMITTED)
+
+  submittedAt DateTime @default(now())
+
+  confirmedById   String?
+  confirmedBy     User?     @relation("ConfirmedBy", fields: [confirmedById], references: [id])
+  confirmedByName String?
+  confirmedAt     DateTime?
+
+  sentAt           DateTime?
+  resendMessageId  String?
+  emailError       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // One feedback per employee per review month — prevents two conflicting
+  // submissions (and therefore two emails) landing on the same employee
+  // for the same cycle (§23's anti-duplicate philosophy, applied one step
+  // earlier than the send step).
+  @@unique([employeeId, reviewPeriod])
+  @@index([departmentId, reviewPeriod])
+  @@index([status])
+}
+
+// ── Audit trail ──────────────────────────────────────────────────────
+//
+// Append-only (mirrors the sibling OneView apps' AuditEvent pattern).
+// Covers CONFIRM / SEND / SEND_FAILED / RESEND plus login events —
+// `metadata` on a SEND event carries the Resend message id, so this
+// doubles as the source for HR's "Email History" nav item without a
+// separate EmailLog table.
+
+enum AuditAction {
+  LOGIN
+  LOGIN_FAILED
+  ACCOUNT_LOCKED
+  LOGOUT
+  ACCESS_DENIED
+  SUBMISSION_CREATED
+  SUBMISSION_CONFIRMED
+  EMAIL_SENT
+  EMAIL_SEND_FAILED
+  EMAIL_RESENT
+}
+
+model AuditEvent {
+  id         String      @id @default(cuid())
+  entityType String
+  entityId   String
+  action     AuditAction
+
+  actorUserId String?
+  actor       User?   @relation(fields: [actorUserId], references: [id])
+  actorEmail  String?
+
+  before   Json?
+  after    Json?
+  metadata Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorUserId])
+}
