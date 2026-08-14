@@ -22,9 +22,14 @@ export interface DropdownProps {
   id?: string;
 }
 
+/** Matches the menu's max-height below, used to decide which way to open. */
+const MENU_MAX_H = 256;
+
 export function Dropdown({ options, value, onChange, placeholder = "Select…", name, disabled, className, id }: DropdownProps) {
   const [open, setOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = options.find((o) => o.value === value);
 
   useEffect(() => {
@@ -42,18 +47,32 @@ export function Dropdown({ options, value, onChange, placeholder = "Select…", 
     };
   }, []);
 
+  function toggle() {
+    if (!open && triggerRef.current) {
+      // Open upward when the menu would otherwise run past the bottom of
+      // the viewport and there is more room above — otherwise the options
+      // sit off-screen on a short window.
+      const rect = triggerRef.current.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom;
+      const above = rect.top;
+      setOpenUp(below < Math.min(MENU_MAX_H, options.length * 40 + 8) && above > below);
+    }
+    setOpen((v) => !v);
+  }
+
   return (
     <div ref={rootRef} className={cn("relative", className)}>
       {name && <input type="hidden" name={name} value={value} />}
       <button
+        ref={triggerRef}
         type="button"
         id={id}
         disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
-          "flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-input bg-background px-3 text-sm shadow-xs transition-ui",
+          "flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-sm shadow-xs transition-ui",
           "hover:border-brand/40 focus-visible:outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/25",
           disabled && "cursor-not-allowed opacity-50"
         )}
@@ -65,7 +84,10 @@ export function Dropdown({ options, value, onChange, placeholder = "Select…", 
       {open && (
         <div
           role="listbox"
-          className="popover-panel animate-scale-in absolute z-30 mt-1.5 max-h-64 w-full origin-top overflow-auto p-1"
+          className={cn(
+            "popover-panel animate-scale-in absolute z-40 max-h-64 w-full overflow-auto p-1",
+            openUp ? "bottom-full mb-1.5 origin-bottom" : "top-full mt-1.5 origin-top"
+          )}
         >
           {options.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">No options</p>}
           {options.map((opt) => {
@@ -82,7 +104,7 @@ export function Dropdown({ options, value, onChange, placeholder = "Select…", 
                 }}
                 className={cn(
                   "flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-ui",
-                  isSelected ? "bg-brand-subtle text-brand" : "hover:bg-accent"
+                  isSelected ? "bg-brand-subtle font-medium text-brand" : "hover:bg-accent"
                 )}
               >
                 <span className="truncate">
