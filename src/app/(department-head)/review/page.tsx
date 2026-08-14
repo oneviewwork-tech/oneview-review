@@ -13,11 +13,11 @@ export default async function ReviewPage() {
   });
 
   return (
-    <div className="mx-auto max-w-xl">
+    <div className="mx-auto max-w-xl animate-fade-up">
       <h1 className="text-page-title">Performance Review</h1>
       <p className="text-page-subtitle mt-1">Submit monthly feedback for an employee in your department.</p>
 
-      <Card className="mt-6">
+      <Card className="mt-6 shadow-md">
         <CardHeader>
           <CardTitle>New feedback</CardTitle>
           <CardDescription>Select an employee, pick a template, and describe their performance.</CardDescription>

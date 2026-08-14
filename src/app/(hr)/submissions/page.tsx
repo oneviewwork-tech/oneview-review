@@ -4,7 +4,9 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DepartmentFilter } from "@/components/hr/department-filter";
 import { ConfirmButton } from "@/components/hr/confirm-button";
+import { RequestRevisionButton } from "@/components/hr/request-revision-button";
 import { SendAllButton } from "@/components/hr/send-all-button";
+import { Card } from "@/components/ui/card";
 import { formatReviewPeriod } from "@/domain/review/period";
 
 export default async function SubmissionsPage({
@@ -25,7 +27,7 @@ export default async function SubmissionsPage({
   const confirmedCount = submissions.filter((s) => s.status === "CONFIRMED").length;
 
   return (
-    <div>
+    <div className="animate-fade-up">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-page-title">Submissions</h1>
@@ -41,10 +43,10 @@ export default async function SubmissionsPage({
       {submissions.length === 0 ? (
         <EmptyState className="mt-6" title="No submissions" description="Nothing has been submitted for this filter yet." />
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-xl border border-border">
+        <Card className="mt-6 overflow-x-auto p-0">
           <table className="w-full text-table">
             <thead>
-              <tr className="border-b border-border bg-muted/50 text-left text-metadata">
+              <tr className="border-b border-border bg-muted/40 text-left text-metadata">
                 <th className="px-4 py-2.5 font-medium">Employee</th>
                 <th className="px-4 py-2.5 font-medium">Department</th>
                 <th className="px-4 py-2.5 font-medium">Period</th>
@@ -55,9 +57,9 @@ export default async function SubmissionsPage({
             </thead>
             <tbody>
               {submissions.map((s) => (
-                <tr key={s.id} className="border-b border-border-subtle last:border-0">
+                <tr key={s.id} className="border-b border-border-subtle transition-ui last:border-0 hover:bg-accent/40">
                   <td className="px-4 py-2.5 font-medium text-foreground">
-                    <Link href={`/submissions/${s.id}`} className="hover:underline">
+                    <Link href={`/submissions/${s.id}`} className="hover:text-brand hover:underline">
                       {s.employeeName}
                     </Link>
                   </td>
@@ -67,20 +69,26 @@ export default async function SubmissionsPage({
                   <td className="px-4 py-2.5">
                     <StatusBadge status={s.status} />
                   </td>
-                  <td className="px-4 py-2.5 text-right">
-                    {s.status === "SUBMITTED" ? (
-                      <ConfirmButton submissionId={s.id} />
-                    ) : (
-                      <Link href={`/submissions/${s.id}`} className="text-sm font-medium text-brand hover:underline">
-                        View
-                      </Link>
-                    )}
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center justify-end gap-2">
+                      {s.status === "SUBMITTED" && (
+                        <>
+                          <RequestRevisionButton submissionId={s.id} />
+                          <ConfirmButton submissionId={s.id} />
+                        </>
+                      )}
+                      {s.status !== "SUBMITTED" && (
+                        <Link href={`/submissions/${s.id}`} className="text-sm font-medium text-brand hover:underline">
+                          View
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   );

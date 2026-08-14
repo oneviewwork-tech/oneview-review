@@ -93,6 +93,7 @@ enum TemplateType {
 
 enum SubmissionStatus {
   SUBMITTED
+  NEEDS_REVISION
   CONFIRMED
   SENT
 }
@@ -137,6 +138,13 @@ model FeedbackSubmission {
   confirmedByName String?
   confirmedAt     DateTime?
 
+  // Set when HR sends a SUBMITTED submission back to the Department Head
+  // (§13's optional NEEDS_REVISION state). Cleared once the Department
+  // Head revises and resubmits — kept null otherwise so its mere presence
+  // means "there is an open revision request."
+  revisionNote        String?
+  revisionRequestedAt DateTime?
+
   sentAt           DateTime?
   resendMessageId  String?
   emailError       String?
@@ -169,9 +177,17 @@ enum AuditAction {
   ACCESS_DENIED
   SUBMISSION_CREATED
   SUBMISSION_CONFIRMED
+  REVISION_REQUESTED
+  SUBMISSION_REVISED
   EMAIL_SENT
   EMAIL_SEND_FAILED
   EMAIL_RESENT
+  DEPARTMENT_CREATED
+  DEPARTMENT_UPDATED
+  EMPLOYEE_CREATED
+  EMPLOYEE_UPDATED
+  USER_CREATED
+  USER_UPDATED
 }
 
 model AuditEvent {

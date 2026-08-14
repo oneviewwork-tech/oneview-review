@@ -40,6 +40,43 @@ export async function confirmSubmission(submissionId: string): Promise<ActionRes
   return ok(undefined, "Submission confirmed.");
 }
 
+/**
+ * HR returns a SUBMITTED submission to the Department Head with a note
+ * (§13's optional NEEDS_REVISION state). Only ever explicit — nothing
+ * auto-flags a submission for revision.
+ */
+export async function requestRevision(submissionId: string, note: string): Promise<ActionResult> {
+  const user = await requireHr();
+  const trimmed = note.trim();
+  if (trimmed.length < 5) return fail("Add a short note explaining what needs to change.");
+
+  const submission = await prisma.feedbackSubmission.findUnique({ where: { id: submissionId } });
+  if (!submission) return fail("Submission not found.");
+  if (submission.status !== "SUBMITTED") {
+    return fail(`Only submitted feedback can be sent back for revision (current status: ${submission.status}).`);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.feedbackSubmission.update({
+      where: { id: submissionId },
+      data: { status: "NEEDS_REVISION", revisionNote: trimmed, revisionRequestedAt: new Date() },
+    });
+    await writeAuditEvent(tx, {
+      entityType: "FeedbackSubmission",
+      entityId: submissionId,
+      action: "REVISION_REQUESTED",
+      actorUserId: user.id,
+      actorEmail: user.email,
+      metadata: { note: trimmed },
+    });
+  });
+
+  revalidatePath("/submissions");
+  revalidatePath(`/submissions/${submissionId}`);
+  revalidatePath("/overview");
+  return ok(undefined, "Sent back to the Department Head for revision.");
+}
+
 function buildEmail(submission: {
   templateType: "A" | "B" | "C";
   employeeName: string;
@@ -119,7 +156,7 @@ export async function sendAllConfirmed(departmentId?: string): Promise<ActionRes
   revalidatePath("/email-history");
   return ok(
     { sent, failed },
-    failed === 0 ? `Sent ${sent} email${sent === 1 ? "" : "s"}.` : `Sent ${sent}, ${failed} failed — see status for details.`
+    failed === 0 ? `Sent ${sent} email${sent === 1 ? "" : "s"}.` : `Sent ${sent}, ${failed} failed. See status for details.`
   );
 }
 

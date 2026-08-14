@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Select } from "@/components/ui/select";
+import { Dropdown } from "@/components/ui/dropdown";
 
 export function DepartmentFilter({ departments }: { departments: { id: string; name: string }[] }) {
   const router = useRouter();
@@ -9,23 +9,16 @@ export function DepartmentFilter({ departments }: { departments: { id: string; n
   const current = searchParams.get("department") ?? "all";
 
   return (
-    <Select
+    <Dropdown
       className="w-56"
       value={current}
-      onChange={(e) => {
-        const value = e.target.value;
+      onChange={(value) => {
         const params = new URLSearchParams(searchParams.toString());
         if (value === "all") params.delete("department");
         else params.set("department", value);
         router.push(`/submissions?${params.toString()}`);
       }}
-    >
-      <option value="all">All Departments</option>
-      {departments.map((d) => (
-        <option key={d.id} value={d.id}>
-          {d.name}
-        </option>
-      ))}
-    </Select>
+      options={[{ value: "all", label: "All Departments" }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
+    />
   );
 }

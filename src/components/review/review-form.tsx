@@ -4,7 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { Dropdown } from "@/components/ui/dropdown";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { TemplateSelector } from "./template-selector";
@@ -54,18 +54,13 @@ export function ReviewForm({ employees }: { employees: ReviewEmployee[] }) {
     <form action={formAction} className="space-y-5">
       <div className="space-y-1.5">
         <Label htmlFor="employeeId">Employee</Label>
-        <Select
+        <Dropdown
           id="employeeId"
           name="employeeId"
           value={employeeId}
-          onChange={(e) => setEmployeeId(e.target.value)}
-        >
-          {employees.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name}
-            </option>
-          ))}
-        </Select>
+          onChange={setEmployeeId}
+          options={employees.map((e) => ({ value: e.id, label: e.name }))}
+        />
       </div>
 
       <div className="space-y-1.5">
@@ -94,12 +89,12 @@ export function ReviewForm({ employees }: { employees: ReviewEmployee[] }) {
       </div>
 
       {state && !state.success && (
-        <p role="alert" className="rounded-lg border border-destructive/20 bg-destructive-subtle px-3 py-2 text-sm text-destructive">
+        <p role="alert" className="animate-fade-up rounded-lg border border-destructive/20 bg-destructive-subtle px-3 py-2 text-sm text-destructive">
           {state.message}
         </p>
       )}
       {state?.success && (
-        <p role="status" className="flex items-center gap-2 rounded-lg border border-success/20 bg-success-subtle px-3 py-2 text-sm text-success">
+        <p role="status" className="animate-fade-up flex items-center gap-2 rounded-lg border border-success/20 bg-success-subtle px-3 py-2 text-sm text-success">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {state.message}
         </p>

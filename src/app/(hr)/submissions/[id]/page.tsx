@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Undo2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { renderEmail } from "@/domain/email/render";
 import { monthNameForPeriod, yearForPeriod, formatReviewPeriod } from "@/domain/review/period";
@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/hr/confirm-button";
 import { ResendButton } from "@/components/hr/resend-button";
+import { RequestRevisionButton } from "@/components/hr/request-revision-button";
 
 export default async function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,8 +23,8 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
   });
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <Link href="/submissions" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+    <div className="mx-auto max-w-2xl animate-fade-up">
+      <Link href="/submissions" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-ui hover:text-foreground">
         <ArrowLeft className="h-3.5 w-3.5" />
         Back to Submissions
       </Link>
@@ -38,7 +39,17 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
         <StatusBadge status={submission.status} />
       </div>
 
-      <Card className="mt-6">
+      {submission.status === "NEEDS_REVISION" && submission.revisionNote && (
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-orange-500/20 bg-orange-500/10 px-3 py-2.5 text-sm text-orange-700 dark:text-orange-400">
+          <Undo2 className="mt-0.5 h-4 w-4 shrink-0" />
+          <div>
+            <p className="font-medium">Sent back to the Department Head</p>
+            <p className="opacity-90">{submission.revisionNote}</p>
+          </div>
+        </div>
+      )}
+
+      <Card className="mt-6" interactive>
         <CardHeader>
           <CardTitle>Submission</CardTitle>
         </CardHeader>
@@ -55,7 +66,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
         </CardContent>
       </Card>
 
-      <Card className="mt-6">
+      <Card className="mt-6" interactive>
         <CardHeader>
           <CardTitle>Generated Email Preview</CardTitle>
         </CardHeader>
@@ -77,12 +88,20 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
       )}
 
       <div className="mt-6 flex items-center gap-3">
-        {submission.status === "SUBMITTED" && <ConfirmButton submissionId={submission.id} />}
+        {submission.status === "SUBMITTED" && (
+          <>
+            <RequestRevisionButton submissionId={submission.id} size="default" />
+            <ConfirmButton submissionId={submission.id} />
+          </>
+        )}
         {submission.status === "SENT" && <ResendButton submissionId={submission.id} />}
         {submission.status === "CONFIRMED" && (
           <p className="text-sm text-muted-foreground">
             Confirmed. Use <Link href="/submissions" className="font-medium text-brand hover:underline">Send All Confirmed</Link> to deliver it.
           </p>
+        )}
+        {submission.status === "NEEDS_REVISION" && (
+          <p className="text-sm text-muted-foreground">Waiting on the Department Head to resubmit.</p>
         )}
       </div>
     </div>

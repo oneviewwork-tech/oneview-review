@@ -19,15 +19,15 @@ export function TemplateSelector({
   name?: string;
 }) {
   return (
-    <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Email template">
+    <div className="grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="Email template">
       {OPTIONS.map((opt) => {
         const selected = value === opt.value;
         return (
           <label
             key={opt.value}
             className={cn(
-              "flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-3 py-3 text-center transition-colors",
-              selected ? "border-brand bg-brand-subtle" : "border-input hover:bg-accent"
+              "relative flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-3 py-3.5 text-center transition-ui hover:-translate-y-0.5",
+              selected ? "border-transparent bg-gradient-brand-soft shadow-glow" : "border-input hover:border-brand/30 hover:bg-accent"
             )}
           >
             <input
@@ -38,7 +38,7 @@ export function TemplateSelector({
               onChange={() => onChange(opt.value)}
               className="sr-only"
             />
-            <span className={cn("text-lg font-semibold", selected ? "text-brand" : "text-foreground")}>
+            <span className={cn("text-lg font-semibold transition-ui", selected ? "gradient-text" : "text-foreground")}>
               {opt.label}
             </span>
             <span className="text-metadata">{opt.hint}</span>

@@ -21,6 +21,31 @@ const ROLE_PREFIXES: { prefix: string; role: UserRole }[] = [
   { prefix: "/admin", role: "ADMIN" },
 ];
 
+/**
+ * CSP has to be built per-request rather than set statically in
+ * next.config.ts: Next streams the App Router payload as inline <script>
+ * tags, so a static `script-src 'self'` blocks its own hydration and every
+ * page renders permanently unhydrated. The per-request nonce is read by
+ * Next and stamped onto the scripts it emits; 'strict-dynamic' then lets
+ * those bootstrap scripts pull their chunks without allowlisting each URL.
+ */
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // Tailwind and React inline style attributes need this; there is no
+    // nonce mechanism for style attributes.
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+  ].join("; ");
+}
+
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isLoggedIn = !!req.auth?.user;
@@ -31,11 +56,18 @@ export default auth((req) => {
       url.searchParams.set("callbackUrl", pathname + req.nextUrl.search);
       return NextResponse.redirect(url);
     }
-    return NextResponse.next();
+    return withSecurityHeaders(req);
   }
 
   const role = req.auth!.user.role;
   const home = homePathForRole(role);
+
+  // A forced password reset outranks everything else: hold the user on
+  // /change-password until it's done, so a seeded/admin-issued temporary
+  // password can't be left in place indefinitely.
+  if (req.auth!.user.mustChangePassword && pathname !== "/change-password") {
+    return NextResponse.redirect(new URL("/change-password", req.nextUrl));
+  }
 
   if (pathname === "/login" || pathname === "/") {
     return NextResponse.redirect(new URL(home, req.nextUrl));
@@ -46,13 +78,33 @@ export default auth((req) => {
     return NextResponse.redirect(new URL(home, req.nextUrl));
   }
 
-  return NextResponse.next();
+  return withSecurityHeaders(req);
 });
+
+function withSecurityHeaders(req: Parameters<Parameters<typeof auth>[0]>[0]) {
+  // Dev is left alone: Turbopack's HMR client needs 'unsafe-eval', and a
+  // strict policy buys nothing on localhost.
+  if (process.env.NODE_ENV !== "production") return NextResponse.next();
+
+  const nonce = crypto.randomUUID().replace(/-/g, "");
+  const csp = buildCsp(nonce);
+
+  // Set on the request so Next can read the nonce and apply it to the
+  // scripts it renders, and on the response so the browser enforces it.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("content-security-policy", csp);
+
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  res.headers.set("content-security-policy", csp);
+  return res;
+}
 
 export const config = {
   matcher: [
     "/",
     "/login",
+    "/change-password",
     "/review",
     "/review/:path*",
     "/my-submissions",

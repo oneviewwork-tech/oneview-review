@@ -1161,3 +1161,19 @@ Status as of the initial build session (2026-08-14):
 * No sidebar — top header nav only, per the sibling OneView Finance project's own lesson (see its memory: a sidebar over-complicates an app with this few destinations). See §27's nav lists.
 * Brand accent: violet (`oklch(... 293)`) — distinct from People's green and Finance's blue within the same design-token architecture (`globals.css`).
 * Seed data (`prisma/seed.ts`) creates the 5 departments from §15's own example, demo employees, one Department Head user per department, one HR user, one Admin user — all sharing password `ChangeMe123!` (must-change-password on first login).
+
+## 35.1 Second pass (2026-08-14): UI system, revisions, admin, production
+
+**Design system.** Gradient violet→magenta brand (`--brand` / `--brand-2`), full dark theme, and a `--gradient-wash` page backdrop. Theme is set pre-paint by `src/components/shared/theme-script.tsx` (hence `suppressHydrationWarning` on `<html>`) and toggled via `src/lib/theme-store.ts` with `useSyncExternalStore` — not a `setState`-in-effect. Custom UI primitives: `Button` (gradient + lift + press), `Card` (optional `interactive` hover lift), `Dropdown` (hand-rolled listbox replacing native `<select>`, syncs a hidden input so plain `<form action={serverAction}>` still works), `Dialog`, `Badge`, `Input`/`Textarea` (focus glow), `Skeleton`.
+
+**Two gotchas worth remembering:**
+1. Utilities that start with `text-` collide in `tailwind-merge`'s font-size group. `text-gradient-brand` silently ate `text-metric`, shrinking the emphasized stat. Renamed to `gradient-text`. Any future gradient/decoration utility should avoid a `text-` prefix.
+2. `buttonVariants` had to move out of `button.tsx` into `button-variants.ts` — `button.tsx` is `"use client"`, and server components styling a `<Link>` as a button can't call a client-module export. This only surfaced at `next build` (prerendering `/_not-found`), not in dev.
+
+**NEEDS_REVISION implemented** (§13's optional state). `requestRevision` (HR, with a required note) → `NEEDS_REVISION` + `revisionNote`/`revisionRequestedAt`; `reviseSubmission` (Department Head, scoped to their own department and only from `NEEDS_REVISION`) → back to `SUBMITTED`. `reviewPeriod` is deliberately NOT recomputed on revision — a late fix still belongs to the month being reviewed.
+
+**Admin section** at `/admin/{departments,employees,users}`. NOTE: a route group `(admin)` adds no URL segment, so the pages must live at `src/app/(admin)/admin/...`; the first attempt put them at `/departments` etc. and only the build output revealed it.
+
+**Production hardening.** Security headers in `next.config.ts`; CSP built per-request with a nonce in `src/proxy.ts` (a static `script-src 'self'` breaks App Router hydration). `error.tsx`, `not-found.tsx`, per-section `loading.tsx`, `/api/health`, `robots: noindex`. `mustChangePassword` is now actually enforced by the proxy, with `/change-password`; changing a password **signs the user out** because a JWT session can't be mutated server-side and the stale flag would otherwise loop them back.
+
+**Verification.** Playwright sweep over every route in both themes (see [[playwright-visual-qa]]) plus the full revision round-trip and the forced-password-change flow. Screenshots caught the tailwind-merge sizing bug that tsc/eslint/build all passed over.

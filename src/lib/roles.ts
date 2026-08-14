@@ -18,6 +18,6 @@ export function homePathForRole(role: UserRole): string {
     case "HR":
       return "/overview";
     case "ADMIN":
-      return "/admin";
+      return "/admin/departments";
   }
 }

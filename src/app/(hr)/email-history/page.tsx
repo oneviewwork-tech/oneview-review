@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { EmptyState } from "@/components/shared/empty-state";
+import { Card } from "@/components/ui/card";
 import { formatReviewPeriod } from "@/domain/review/period";
 
 export default async function EmailHistoryPage() {
@@ -10,17 +11,17 @@ export default async function EmailHistoryPage() {
   });
 
   return (
-    <div>
+    <div className="animate-fade-up">
       <h1 className="text-page-title">Email History</h1>
       <p className="text-page-subtitle mt-1">Every performance review email that has been sent.</p>
 
       {sent.length === 0 ? (
         <EmptyState className="mt-6" title="No emails sent yet" description="Sent emails will appear here once submissions are confirmed and delivered." />
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-xl border border-border">
+        <Card className="mt-6 overflow-x-auto p-0">
           <table className="w-full text-table">
             <thead>
-              <tr className="border-b border-border bg-muted/50 text-left text-metadata">
+              <tr className="border-b border-border bg-muted/40 text-left text-metadata">
                 <th className="px-4 py-2.5 font-medium">Employee</th>
                 <th className="px-4 py-2.5 font-medium">Department</th>
                 <th className="px-4 py-2.5 font-medium">Period</th>
@@ -31,9 +32,9 @@ export default async function EmailHistoryPage() {
             </thead>
             <tbody>
               {sent.map((s) => (
-                <tr key={s.id} className="border-b border-border-subtle last:border-0">
+                <tr key={s.id} className="border-b border-border-subtle transition-ui last:border-0 hover:bg-accent/40">
                   <td className="px-4 py-2.5 font-medium text-foreground">
-                    <Link href={`/submissions/${s.id}`} className="hover:underline">
+                    <Link href={`/submissions/${s.id}`} className="hover:text-brand hover:underline">
                       {s.employeeName}
                     </Link>
                   </td>
@@ -46,7 +47,7 @@ export default async function EmailHistoryPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </Card>
       )}
     </div>
   );

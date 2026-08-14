@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ThemeScript } from "@/components/shared/theme-script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,13 +14,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "OneView Review",
-  description: "Performance feedback collection and distribution for OneView.",
+  title: { default: "ONEVIEW Review", template: "%s · ONEVIEW Review" },
+  description: "Performance feedback collection and distribution for ONEVIEW.",
+  // Internal tool holding employee performance data — never index it.
+  robots: { index: false, follow: false, nocache: true },
+  applicationName: "ONEVIEW Review",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    // suppressHydrationWarning: theme-script.tsx adds the `dark` class to
+    // <html> before hydration, so the client's className legitimately
+    // differs from the server's. Scoped to this element only.
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <head>
+        <ThemeScript />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
     </html>
   );
