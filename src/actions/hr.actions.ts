@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireHr } from "@/lib/rbac";
+import { requireHrAccess } from "@/lib/rbac";
 import { writeAuditEvent } from "@/lib/audit";
 import { renderEmail } from "@/domain/email/render";
 import { monthNameForPeriod, yearForPeriod } from "@/domain/review/period";
@@ -11,7 +11,7 @@ import { ok, fail, type ActionResult } from "@/lib/action-result";
 
 /** HR reviews and confirms a submission (§19). Eligible for "Send All Confirmed" once confirmed. */
 export async function confirmSubmission(submissionId: string): Promise<ActionResult> {
-  const user = await requireHr();
+  const user = await requireHrAccess();
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id: submissionId } });
   if (!submission) return fail("Submission not found.");
@@ -46,7 +46,7 @@ export async function confirmSubmission(submissionId: string): Promise<ActionRes
  * auto-flags a submission for revision.
  */
 export async function requestRevision(submissionId: string, note: string): Promise<ActionResult> {
-  const user = await requireHr();
+  const user = await requireHrAccess();
   const trimmed = note.trim();
   if (trimmed.length < 5) return fail("Add a short note explaining what needs to change.");
 
@@ -136,7 +136,7 @@ async function deliverAndRecord(
 
 /** Bulk-sends every CONFIRMED submission (§20). SENT ones are excluded by the status filter (§23). */
 export async function sendAllConfirmed(departmentId?: string): Promise<ActionResult<{ sent: number; failed: number }>> {
-  const user = await requireHr();
+  const user = await requireHrAccess();
 
   const confirmed = await prisma.feedbackSubmission.findMany({
     where: { status: "CONFIRMED", ...(departmentId ? { departmentId } : {}) },
@@ -162,7 +162,7 @@ export async function sendAllConfirmed(departmentId?: string): Promise<ActionRes
 
 /** Explicit re-send for an already-SENT submission (§23) — never implicit. */
 export async function resendSubmission(submissionId: string): Promise<ActionResult> {
-  const user = await requireHr();
+  const user = await requireHrAccess();
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id: submissionId } });
   if (!submission) return fail("Submission not found.");

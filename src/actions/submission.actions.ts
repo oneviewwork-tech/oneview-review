@@ -2,23 +2,26 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireDepartmentHead, requireOwnsEmployee } from "@/lib/rbac";
+import { requireReviewAccess, requireOwnsEmployee } from "@/lib/rbac";
 import { writeAuditEvent } from "@/lib/audit";
 import { createSubmissionSchema, reviseSubmissionSchema } from "@/validators/submission";
 import { reviewPeriodForDate } from "@/domain/review/period";
 import { ok, fail, type ActionResult } from "@/lib/action-result";
 
 /**
- * Department Head submits feedback for one of their own employees (§12).
- * Employee ownership is re-checked server-side via requireOwnsEmployee —
- * the dropdown being department-filtered on the client is not the real
- * boundary (§8).
+ * Submits feedback for an employee (§12).
+ *
+ * A Department Head is confined to their own department, re-checked
+ * server-side via requireOwnsEmployee — the dropdown being filtered on the
+ * client is not the boundary (§8). An Admin may act for any department, so
+ * the department is taken from the employee record itself rather than from
+ * the request, which means there is nothing for a caller to forge.
  */
 export async function createSubmission(
   _prev: ActionResult<{ id: string }> | undefined,
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
-  const { user, departmentId } = await requireDepartmentHead();
+  const { user, departmentId, isAdmin } = await requireReviewAccess();
 
   const parsed = createSubmissionSchema.safeParse({
     employeeId: formData.get("employeeId"),
@@ -29,8 +32,14 @@ export async function createSubmission(
     return fail("Please fix the highlighted fields.", parsed.error.flatten().fieldErrors);
   }
 
-  const employee = await requireOwnsEmployee(departmentId, parsed.data.employeeId);
-  const department = await prisma.department.findUniqueOrThrow({ where: { id: departmentId } });
+  let employee;
+  if (isAdmin) {
+    employee = await prisma.employee.findUnique({ where: { id: parsed.data.employeeId } });
+    if (!employee || !employee.isActive) return fail("That employee is not available.");
+  } else {
+    employee = await requireOwnsEmployee(departmentId!, parsed.data.employeeId);
+  }
+  const department = await prisma.department.findUniqueOrThrow({ where: { id: employee.departmentId } });
 
   const now = new Date();
   const reviewPeriod = reviewPeriodForDate(now);
@@ -87,7 +96,7 @@ export async function reviseSubmission(
   _prev: ActionResult | undefined,
   formData: FormData
 ): Promise<ActionResult> {
-  const { user, departmentId } = await requireDepartmentHead();
+  const { user, departmentId, isAdmin } = await requireReviewAccess();
 
   const parsed = reviseSubmissionSchema.safeParse({
     submissionId: formData.get("submissionId"),
@@ -99,7 +108,9 @@ export async function reviseSubmission(
   }
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id: parsed.data.submissionId } });
-  if (!submission || submission.departmentId !== departmentId) {
+  // An Admin may revise any submission; a Department Head only their own
+  // department's.
+  if (!submission || (!isAdmin && submission.departmentId !== departmentId)) {
     return fail("Submission not found.");
   }
   if (submission.status !== "NEEDS_REVISION") {

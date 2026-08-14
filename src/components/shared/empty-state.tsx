@@ -11,11 +11,11 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={cn("animate-fade-up flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-14 text-center", className)}>
-      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-brand-soft">
+    <div className={cn("animate-fade-up flex flex-col items-center justify-center rounded-xl border border-border bg-card py-14 text-center", className)}>
+      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-subtle">
         <Inbox className="h-5 w-5 text-brand" />
       </div>
-      <p className="mt-3 text-sm font-medium text-foreground">{title}</p>
+      <p className="mt-3 text-sm font-semibold text-foreground">{title}</p>
       {description && <p className="mt-1 max-w-xs text-sm text-muted-foreground">{description}</p>}
     </div>
   );

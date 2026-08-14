@@ -1,24 +1,23 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Undo2 } from "lucide-react";
-import { requireDepartmentHead } from "@/lib/rbac";
+import { requireReviewAccess } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ReviseForm } from "@/components/review/revise-form";
 
 export default async function RevisePage({ params }: { params: Promise<{ id: string }> }) {
-  const { departmentId, user } = await requireDepartmentHead();
+  const { departmentId, user, isAdmin } = await requireReviewAccess();
   const { id } = await params;
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id } });
-  if (
-    !submission ||
-    submission.departmentId !== departmentId ||
-    submission.departmentHeadId !== user.id ||
-    submission.status !== "NEEDS_REVISION"
-  ) {
-    notFound();
-  }
+  // An Admin can revise anything; a Department Head only their own
+  // submissions, in their own department.
+  const permitted =
+    submission &&
+    submission.status === "NEEDS_REVISION" &&
+    (isAdmin || (submission.departmentId === departmentId && submission.departmentHeadId === user.id));
+  if (!permitted) notFound();
 
   return (
     <div className="mx-auto max-w-xl animate-fade-up">

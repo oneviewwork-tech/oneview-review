@@ -1,21 +1,13 @@
-import { requireHr } from "@/lib/rbac";
-import { AppHeader } from "@/components/shared/app-header";
+import { requireHrAccess } from "@/lib/rbac";
+import { AppShell } from "@/components/shared/app-shell";
+import { ROLE_LABEL } from "@/lib/roles";
 
 export default async function HrLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireHr();
+  const user = await requireHrAccess();
 
   return (
-    <div className="flex flex-1 flex-col">
-      <AppHeader
-        navItems={[
-          { href: "/overview", label: "Overview" },
-          { href: "/submissions", label: "Submissions" },
-          { href: "/email-history", label: "Email History" },
-        ]}
-        userName={user.name}
-        userMeta="HR"
-      />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
-    </div>
+    <AppShell role={user.role} userName={user.name} userMeta={ROLE_LABEL[user.role]}>
+      {children}
+    </AppShell>
   );
 }

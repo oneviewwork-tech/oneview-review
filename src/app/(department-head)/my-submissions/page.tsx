@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Undo2 } from "lucide-react";
-import { requireDepartmentHead } from "@/lib/rbac";
+import { requireReviewAccess } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -9,7 +9,7 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { formatReviewPeriod } from "@/domain/review/period";
 
 export default async function MySubmissionsPage() {
-  const { user } = await requireDepartmentHead();
+  const { user } = await requireReviewAccess();
 
   const submissions = await prisma.feedbackSubmission.findMany({
     where: { departmentHeadId: user.id },

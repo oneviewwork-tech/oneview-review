@@ -53,20 +53,35 @@ async function logDenied(actorId: string, actorEmail: string, reason: string, me
   }).catch(() => {});
 }
 
-/** Throws unless the signed-in user is a Department Head, and returns their department id. */
-export async function requireDepartmentHead() {
+/**
+ * Access to the review-submission surface.
+ *
+ * A Department Head is locked to their own department — this is the §8
+ * boundary and the reason `departmentId` is returned rather than taken
+ * from the request. An Admin has no department of their own but may act
+ * for any, so `departmentId` is null for them and the caller must resolve
+ * which department is being acted on (and pass it to requireOwnsEmployee,
+ * which re-checks the employee actually belongs to it).
+ */
+export async function requireReviewAccess() {
   const user = await requireUser();
+  if (user.role === "ADMIN") {
+    return { user, departmentId: null as string | null, isAdmin: true as const };
+  }
   if (user.role !== "DEPARTMENT_HEAD" || !user.departmentId) {
     void logDenied(user.id, user.email, "not_department_head");
     throw new ForbiddenError("This page is only available to Department Heads.");
   }
-  return { user, departmentId: user.departmentId };
+  return { user, departmentId: user.departmentId as string | null, isAdmin: false as const };
 }
 
-/** Throws unless the signed-in user is HR (full cross-department access, §6). */
-export async function requireHr() {
+/**
+ * Access to HR's review/confirm/send surface. Admin is a deliberate
+ * superset of HR — anything HR can do, an Admin can do.
+ */
+export async function requireHrAccess() {
   const user = await requireUser();
-  if (user.role !== "HR") {
+  if (user.role !== "HR" && user.role !== "ADMIN") {
     void logDenied(user.id, user.email, "not_hr");
     throw new ForbiddenError("This page is only available to HR.");
   }

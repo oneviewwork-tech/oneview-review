@@ -1177,3 +1177,17 @@ Status as of the initial build session (2026-08-14):
 **Production hardening.** Security headers in `next.config.ts`; CSP built per-request with a nonce in `src/proxy.ts` (a static `script-src 'self'` breaks App Router hydration). `error.tsx`, `not-found.tsx`, per-section `loading.tsx`, `/api/health`, `robots: noindex`. `mustChangePassword` is now actually enforced by the proxy, with `/change-password`; changing a password **signs the user out** because a JWT session can't be mutated server-side and the stale flag would otherwise loop them back.
 
 **Verification.** Playwright sweep over every route in both themes (see [[playwright-visual-qa]]) plus the full revision round-trip and the forced-password-change flow. Screenshots caught the tailwind-merge sizing bug that tsc/eslint/build all passed over.
+
+## 35.2 Third pass: one app, sidebar, Meta-style blue
+
+**User feedback that drove this:** *"this is 3 app but we need one app with sidebar"* and *"current theme is not look good we need white and blue like meta theme"*, then *"admin show everything and every action to hr, head"*.
+
+**Single shell.** The three per-role header layouts are gone (`app-header.tsx` / `nav-link.tsx` deleted). Every route group now renders through `AppShell` → `AppSidebar`, with nav defined once in `src/lib/navigation.ts` and filtered by role. Same shell, same grouping, different contents — so it reads as one product.
+
+**Theme is now white + Meta blue** (`#0866ff`, dark `#2d88ff`) on Meta's own neutrals (`#f0f2f5` page, white cards/sidebar; `#18191a`/`#242526` in dark). All gradient/glass/glow treatments were removed — flat surfaces, blue only for action/selection/links. Status colors stay reserved (green/amber/red).
+
+**ADMIN is now a superset**, per the user's explicit instruction: it can do everything HR and a Department Head can, plus administration. Implemented as `requireHrAccess()` (HR or ADMIN) and `requireReviewAccess()` (DEPARTMENT_HEAD or ADMIN), with `ROLE_PREFIXES` in proxy.ts listing allowed roles per prefix. Admin's home is `/overview`.
+- **Department Heads are still hard-scoped to their own department** — that boundary is untouched and remains the §8 requirement.
+- An Admin has no department, so the review form shows a **department picker** for them, and `createSubmission` derives the department **from the employee record**, never from the request — nothing to forge. Verified end-to-end: admin submitted for SEO, row recorded `departmentName: SEO` with the admin as submitter.
+
+**The tailwind-merge collision bit twice**, so it is now fixed at the root: `cn()` in `src/lib/utils.ts` uses `extendTailwindMerge` declaring every custom `text-*` typography utility as a font-size group. Without it, `cn("text-metric", "text-brand")` silently dropped the size. **Any new `text-`prefixed utility added to globals.css must also be listed there.**

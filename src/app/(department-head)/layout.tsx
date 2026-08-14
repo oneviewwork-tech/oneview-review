@@ -1,20 +1,19 @@
-import { requireDepartmentHead } from "@/lib/rbac";
-import { AppHeader } from "@/components/shared/app-header";
+import { requireReviewAccess } from "@/lib/rbac";
+import { AppShell } from "@/components/shared/app-shell";
+import { ROLE_LABEL } from "@/lib/roles";
 
 export default async function DepartmentHeadLayout({ children }: { children: React.ReactNode }) {
-  const { user } = await requireDepartmentHead();
+  const { user } = await requireReviewAccess();
 
   return (
-    <div className="flex flex-1 flex-col">
-      <AppHeader
-        navItems={[
-          { href: "/review", label: "Review" },
-          { href: "/my-submissions", label: "My Submissions" },
-        ]}
-        userName={user.name}
-        userMeta={user.department?.name ?? ""}
-      />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">{children}</main>
-    </div>
+    <AppShell
+      role={user.role}
+      userName={user.name}
+      // A Department Head is identified by their department; an Admin
+      // acting here has none, so fall back to the role name.
+      userMeta={user.department?.name ?? ROLE_LABEL[user.role]}
+    >
+      {children}
+    </AppShell>
   );
 }

@@ -14,7 +14,7 @@ export default async function ChangePasswordPage() {
       </div>
       <div className="w-full max-w-sm animate-fade-up">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-brand shadow-glow">
+          <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand">
             <KeyRound className="h-5 w-5 text-brand-foreground" />
           </div>
           <h1 className="text-page-title">
@@ -26,7 +26,7 @@ export default async function ChangePasswordPage() {
               : "Update the password you use to sign in."}
           </p>
         </div>
-        <Card className="glass-panel shadow-lg">
+        <Card>
           <CardHeader>
             <CardTitle>Password</CardTitle>
             <CardDescription>Use at least 8 characters.</CardDescription>

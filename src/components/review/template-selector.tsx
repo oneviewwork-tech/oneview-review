@@ -26,8 +26,8 @@ export function TemplateSelector({
           <label
             key={opt.value}
             className={cn(
-              "relative flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border px-3 py-3.5 text-center transition-ui hover:-translate-y-0.5",
-              selected ? "border-transparent bg-gradient-brand-soft shadow-glow" : "border-input hover:border-brand/30 hover:bg-accent"
+              "flex cursor-pointer flex-col items-center gap-0.5 rounded-lg border-2 px-3 py-3.5 text-center transition-ui",
+              selected ? "border-brand bg-brand-subtle" : "border-border hover:border-input hover:bg-accent"
             )}
           >
             <input
@@ -38,7 +38,7 @@ export function TemplateSelector({
               onChange={() => onChange(opt.value)}
               className="sr-only"
             />
-            <span className={cn("text-lg font-semibold transition-ui", selected ? "gradient-text" : "text-foreground")}>
+            <span className={cn("text-lg font-bold transition-ui", selected ? "text-brand" : "text-foreground")}>
               {opt.label}
             </span>
             <span className="text-metadata">{opt.hint}</span>

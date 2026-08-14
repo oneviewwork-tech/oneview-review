@@ -18,6 +18,8 @@ export function homePathForRole(role: UserRole): string {
     case "HR":
       return "/overview";
     case "ADMIN":
-      return "/admin/departments";
+      // Admin is a superset of HR, so the operational dashboard is a more
+      // useful landing than the setup screens.
+      return "/overview";
   }
 }

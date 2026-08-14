@@ -42,7 +42,7 @@ export function Dialog({
         aria-modal="true"
         aria-labelledby="dialog-title"
         className={cn(
-          "glass-panel animate-fade-up relative w-full max-w-md rounded-xl border border-border p-5 shadow-lg",
+          "animate-fade-up relative bg-popover w-full max-w-md rounded-xl border border-border p-5 shadow-lg",
           className
         )}
       >

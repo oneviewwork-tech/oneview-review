@@ -9,16 +9,19 @@ import type { UserRole } from "@prisma/client";
 const { auth } = NextAuth(authConfig);
 
 // Backend enforcement of §6/§8/§26's role boundaries at the routing layer.
-// Real security still lives in requireDepartmentHead()/requireHr()/
+// Real security still lives in requireReviewAccess()/requireHrAccess()/
 // requireAdmin() (src/lib/rbac.ts) — this just turns "wrong role" into a
 // redirect to that role's own home instead of a thrown error page.
-const ROLE_PREFIXES: { prefix: string; role: UserRole }[] = [
-  { prefix: "/review", role: "DEPARTMENT_HEAD" },
-  { prefix: "/my-submissions", role: "DEPARTMENT_HEAD" },
-  { prefix: "/overview", role: "HR" },
-  { prefix: "/submissions", role: "HR" },
-  { prefix: "/email-history", role: "HR" },
-  { prefix: "/admin", role: "ADMIN" },
+//
+// ADMIN is a deliberate superset and is allowed everywhere, so it is
+// listed against every prefix rather than only /admin.
+const ROLE_PREFIXES: { prefix: string; roles: UserRole[] }[] = [
+  { prefix: "/review", roles: ["DEPARTMENT_HEAD", "ADMIN"] },
+  { prefix: "/my-submissions", roles: ["DEPARTMENT_HEAD", "ADMIN"] },
+  { prefix: "/overview", roles: ["HR", "ADMIN"] },
+  { prefix: "/submissions", roles: ["HR", "ADMIN"] },
+  { prefix: "/email-history", roles: ["HR", "ADMIN"] },
+  { prefix: "/admin", roles: ["ADMIN"] },
 ];
 
 /**
@@ -74,7 +77,7 @@ export default auth((req) => {
   }
 
   const match = ROLE_PREFIXES.find((r) => pathname === r.prefix || pathname.startsWith(r.prefix + "/"));
-  if (match && match.role !== role) {
+  if (match && !match.roles.includes(role)) {
     return NextResponse.redirect(new URL(home, req.nextUrl));
   }
 

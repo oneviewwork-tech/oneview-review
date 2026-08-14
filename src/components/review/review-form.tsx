@@ -15,24 +15,40 @@ export interface ReviewEmployee {
   id: string;
   name: string;
   email: string;
+  departmentId: string;
 }
 
-const initialState = undefined;
+export function ReviewForm({
+  employees,
+  departments,
+}: {
+  employees: ReviewEmployee[];
+  /** Only populated for Admins, who must choose a department first. */
+  departments: { id: string; name: string }[];
+}) {
+  const [state, formAction, isPending] = useActionState(createSubmission, undefined);
+  const isAdmin = departments.length > 0;
 
-export function ReviewForm({ employees }: { employees: ReviewEmployee[] }) {
-  const [state, formAction, isPending] = useActionState(createSubmission, initialState);
-  const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? "");
+  const [departmentId, setDepartmentId] = useState(departments[0]?.id ?? "");
+  const visibleEmployees = useMemo(
+    () => (isAdmin ? employees.filter((e) => e.departmentId === departmentId) : employees),
+    [isAdmin, employees, departmentId]
+  );
+
+  const [employeeId, setEmployeeId] = useState(visibleEmployees[0]?.id ?? "");
   const [templateType, setTemplateType] = useState<TemplateType | "">("");
   const [feedback, setFeedback] = useState("");
 
-  const selectedEmployee = useMemo(
-    () => employees.find((e) => e.id === employeeId),
-    [employees, employeeId]
-  );
+  // Keep the employee selection valid when the department changes, and
+  // clear the form after a successful submit. Both are derived from
+  // changing values, so they're adjusted during render rather than in an
+  // effect (React's own guidance) — no extra render pass.
+  const [lastDept, setLastDept] = useState(departmentId);
+  if (departmentId !== lastDept) {
+    setLastDept(departmentId);
+    setEmployeeId(visibleEmployees[0]?.id ?? "");
+  }
 
-  // Reset the form after a successful submit so the next review starts
-  // clean. Adjusted during render (not an effect) per React's guidance for
-  // state that depends on a changing prop/value — avoids an extra render.
   const [handledState, setHandledState] = useState(state);
   if (state !== handledState) {
     setHandledState(state);
@@ -42,16 +58,30 @@ export function ReviewForm({ employees }: { employees: ReviewEmployee[] }) {
     }
   }
 
+  const selectedEmployee = visibleEmployees.find((e) => e.id === employeeId);
+
   if (employees.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No employees are assigned to your department yet. Contact HR to get set up.
+        No employees are available yet. Add employees under Administration first.
       </p>
     );
   }
 
   return (
     <form action={formAction} className="space-y-5">
+      {isAdmin && (
+        <div className="space-y-1.5">
+          <Label htmlFor="departmentId">Department</Label>
+          <Dropdown
+            id="departmentId"
+            value={departmentId}
+            onChange={setDepartmentId}
+            options={departments.map((d) => ({ value: d.id, label: d.name }))}
+          />
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <Label htmlFor="employeeId">Employee</Label>
         <Dropdown
@@ -59,7 +89,8 @@ export function ReviewForm({ employees }: { employees: ReviewEmployee[] }) {
           name="employeeId"
           value={employeeId}
           onChange={setEmployeeId}
-          options={employees.map((e) => ({ value: e.id, label: e.name }))}
+          placeholder={visibleEmployees.length ? "Select an employee" : "No employees in this department"}
+          options={visibleEmployees.map((e) => ({ value: e.id, label: e.name }))}
         />
       </div>
 
@@ -100,7 +131,7 @@ export function ReviewForm({ employees }: { employees: ReviewEmployee[] }) {
         </p>
       )}
 
-      <Button type="submit" loading={isPending} disabled={!templateType}>
+      <Button type="submit" loading={isPending} disabled={!templateType || !employeeId}>
         Submit Feedback
       </Button>
     </form>
