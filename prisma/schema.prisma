@@ -159,6 +159,12 @@ model FeedbackSubmission {
   @@unique([employeeId, reviewPeriod])
   @@index([departmentId, reviewPeriod])
   @@index([status])
+  // The dashboard groups by status/department filtered on reviewPeriod
+  // alone; the composite index above can't serve that, since departmentId
+  // leads it.
+  @@index([reviewPeriod])
+  // "My Submissions" filters solely on the submitting Department Head.
+  @@index([departmentHeadId])
 }
 
 // ── Audit trail ──────────────────────────────────────────────────────

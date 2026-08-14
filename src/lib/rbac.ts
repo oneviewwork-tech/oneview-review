@@ -31,7 +31,13 @@ export const requireSession = cache(async function requireSession() {
  */
 export const requireUser = cache(async function requireUser() {
   const session = await requireSession();
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  // The department is joined here rather than fetched separately: a
+  // Department Head's layout needs its name on every page, and the DB is in
+  // Singapore, so a second round trip costs far more than this join.
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: { department: { select: { id: true, name: true, code: true } } },
+  });
   if (!user || !user.isActive) throw new UnauthenticatedError();
   return user;
 });

@@ -62,6 +62,18 @@ npm run dev
    Then sign in as the admin, change the password when prompted, and create the real users from **Admin → Users**.
 5. **Verify** `https://<your-domain>/api/health` returns `{"status":"ok"}`.
 
+### Performance
+
+The database is in Singapore (`ap-southeast-1`), and page latency is dominated by **network round trips, not query time** — measured against the live database, Postgres executes the dashboard aggregation in ~0.05 ms while a single round trip from outside the region costs ~85 ms.
+
+Three things follow from that, all already in place:
+
+1. **`vercel.json` pins the deployment to `sin1`**, so the app runs beside the database instead of calling across the world. If the database region ever changes, change this too.
+2. **Every page issues its queries in parallel.** The HR overview runs five queries in ~117 ms total, barely more than one round trip — not 5 × 85 ms. When adding a query to a page, add it to the existing `Promise.all` rather than `await`ing it separately.
+3. **Counts are aggregated in Postgres** (`groupBy`), never by fetching rows and calling `.length`.
+
+Neon's serverless compute also auto-suspends after ~5 minutes idle, so the first request after a quiet period pays a wake-up cost. `src/lib/prisma.ts` pings every 4 minutes to prevent that when running on a long-lived server, and skips it on Vercel where there's no persistent event loop between invocations.
+
 ### Production notes
 
 - Every account created by the seed or by an Admin starts with `mustChangePassword`, and the proxy holds the user on `/change-password` until it's done.
