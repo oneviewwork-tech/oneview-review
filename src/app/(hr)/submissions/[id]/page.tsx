@@ -58,7 +58,14 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           <Row label="Email" value={submission.employeeEmail} />
           <Row label="Department" value={submission.departmentName} />
           <Row label="Template" value={`Template ${submission.templateType}`} />
-          <Row label="Submitted by" value={submission.departmentHeadName} />
+          <Row
+            label="Submitted by"
+            value={
+              submission.departmentHeadEmail
+                ? `${submission.departmentHeadName} (${submission.departmentHeadEmail})`
+                : submission.departmentHeadName
+            }
+          />
           <div>
             <p className="text-metadata mb-1">Performance Feedback</p>
             <p className="whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-foreground">{submission.feedback}</p>
@@ -71,8 +78,31 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           <CardTitle>Generated Email Preview</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-metadata mb-1">Subject</p>
-          <p className="mb-4 font-medium text-foreground">{email.subject}</p>
+          <dl className="mb-4 space-y-1.5 text-sm">
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-metadata">To</dt>
+              <dd className="min-w-0 break-words font-medium text-foreground">{submission.employeeEmail}</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-metadata">Cc</dt>
+              <dd className="min-w-0 break-words text-foreground">
+                {submission.departmentHeadEmail ? (
+                  <>
+                    {submission.departmentHeadEmail}
+                    <span className="text-metadata"> · {submission.departmentHeadName}, who submitted this</span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">
+                    No copy — this submission predates the Cc, or its submitter was removed.
+                  </span>
+                )}
+              </dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="w-14 shrink-0 text-metadata">Subject</dt>
+              <dd className="min-w-0 break-words font-medium text-foreground">{email.subject}</dd>
+            </div>
+          </dl>
           <div className="break-words rounded-lg border border-border bg-surface-sunken p-4 text-sm text-foreground [&>p]:mb-3 [&>p:last-child]:mb-0" dangerouslySetInnerHTML={{ __html: email.html }} />
         </CardContent>
       </Card>

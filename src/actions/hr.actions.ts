@@ -92,12 +92,24 @@ function buildEmail(submission: {
 }
 
 async function deliverAndRecord(
-  submission: { id: string; employeeEmail: string; templateType: "A" | "B" | "C"; employeeName: string; feedback: string; reviewPeriod: Date },
+  submission: {
+    id: string;
+    employeeEmail: string;
+    templateType: "A" | "B" | "C";
+    employeeName: string;
+    feedback: string;
+    reviewPeriod: Date;
+    departmentHeadEmail: string | null;
+  },
   actor: { id: string; email: string },
   auditAction: "EMAIL_SENT" | "EMAIL_RESENT"
 ) {
   const email = buildEmail(submission);
-  const result = await sendReviewEmail({ to: submission.employeeEmail, ...email });
+  // Whoever submitted the feedback is copied in, so the employee's manager
+  // sees exactly what was sent about them and the employee can reply to
+  // both. Older submissions predate this field and simply get no CC.
+  const cc = submission.departmentHeadEmail ? [submission.departmentHeadEmail] : [];
+  const result = await sendReviewEmail({ to: submission.employeeEmail, cc, ...email });
 
   await prisma.$transaction(async (tx) => {
     if (result.ok) {
@@ -111,7 +123,7 @@ async function deliverAndRecord(
         action: auditAction,
         actorUserId: actor.id,
         actorEmail: actor.email,
-        metadata: { resendMessageId: result.messageId },
+        metadata: { resendMessageId: result.messageId, to: submission.employeeEmail, cc },
       });
     } else {
       // Never marked SENT on failure (§22) — status stays CONFIRMED so it

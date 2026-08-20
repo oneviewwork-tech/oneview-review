@@ -164,6 +164,12 @@ model FeedbackSubmission {
   departmentHeadId   String
   departmentHead     User   @relation("SubmittedBy", fields: [departmentHeadId], references: [id])
   departmentHeadName String
+  /// Snapshot of the submitter's address, kept for the same reason as the
+  /// other identity snapshots: this is who gets CC'd on the review email,
+  /// and it must stay the person who actually submitted even if their
+  /// account address changes later. Nullable because submissions created
+  /// before CC existed have no captured address.
+  departmentHeadEmail String?
 
   templateType TemplateType
   feedback     String

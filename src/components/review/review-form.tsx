@@ -156,6 +156,9 @@ export function ReviewForm({
         <p className="text-metadata">
           This is the only part that changes — the rest of the email comes from the template you picked.
         </p>
+        <p className="text-metadata">
+          When HR sends this, the employee receives it and you are copied in.
+        </p>
         {state && !state.success && state.fieldErrors?.feedback && (
           <p className="text-sm text-destructive">{state.fieldErrors.feedback[0]}</p>
         )}

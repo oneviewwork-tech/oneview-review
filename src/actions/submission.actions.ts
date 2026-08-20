@@ -68,6 +68,9 @@ export async function createSubmission(
         departmentName: department.name,
         departmentHeadId: user.id,
         departmentHeadName: user.name,
+        // Captured now rather than looked up at send time: this is who gets
+        // CC'd, and it must stay whoever actually submitted.
+        departmentHeadEmail: user.email,
         templateType: parsed.data.templateType,
         feedback: parsed.data.feedback,
         reviewPeriod,

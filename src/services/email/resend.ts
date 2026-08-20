@@ -33,6 +33,8 @@ export interface SendResult {
  */
 export async function sendReviewEmail(input: {
   to: string;
+  /** Copied in, in addition to `to`. Empty/duplicate entries are dropped. */
+  cc?: string[];
   subject: string;
   text: string;
   html: string;
@@ -40,10 +42,18 @@ export async function sendReviewEmail(input: {
   const from = process.env.EMAIL_FROM;
   if (!from) return { ok: false, error: "EMAIL_FROM is not configured." };
 
+  // Never copy the recipient in on their own review: it reads as a mistake,
+  // and some clients then show the message twice in their inbox.
+  const cc = [...new Set((input.cc ?? []).map((a) => a.trim().toLowerCase()).filter(Boolean))].filter(
+    (address) => address !== input.to.trim().toLowerCase()
+  );
+
   // Dev convenience only — never in production, where a missing key must
   // surface as a real failure rather than a silent no-op.
   if (!isEmailConfigured() && process.env.NODE_ENV !== "production") {
-    console.warn(`[email:dev] to=${input.to} subject="${input.subject}"\n${input.text}`);
+    console.warn(
+      `[email:dev] to=${input.to}${cc.length ? ` cc=${cc.join(",")}` : ""} subject="${input.subject}"\n${input.text}`
+    );
     return { ok: true, messageId: `dev-${Date.now()}` };
   }
 
@@ -52,6 +62,7 @@ export async function sendReviewEmail(input: {
     const { data, error } = await resend.emails.send({
       from,
       to: input.to,
+      ...(cc.length ? { cc } : {}),
       subject: input.subject,
       text: input.text,
       html: input.html,
