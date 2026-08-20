@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { Avatar } from "@/components/shared/avatar";
+import { SearchField } from "@/components/shared/search-field";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ScopeFilter } from "@/components/hr/scope-filter";
@@ -13,21 +16,33 @@ import { formatReviewPeriod } from "@/domain/review/period";
 export default async function SubmissionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string; department?: string }>;
+  searchParams: Promise<{ org?: string; department?: string; q?: string }>;
 }) {
   const params = await searchParams;
   const organizations = await getScopeOrganizations();
   const scope = resolveScope(organizations, params);
+  const q = params.q?.trim() ?? "";
+
+  const search: Prisma.FeedbackSubmissionWhereInput = q
+    ? {
+        OR: [
+          { employeeName: { contains: q, mode: "insensitive" } },
+          { employeeEmail: { contains: q, mode: "insensitive" } },
+        ],
+      }
+    : {};
 
   const submissions = await prisma.feedbackSubmission.findMany({
     where: {
       ...(scope.organizationId ? { organizationId: scope.organizationId } : {}),
       ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
+      ...search,
     },
     orderBy: { submittedAt: "desc" },
   });
 
   const confirmedCount = submissions.filter((s) => s.status === "CONFIRMED").length;
+  const showOrgColumn = !scope.organizationId;
 
   return (
     <div className="animate-fade-up">
@@ -36,6 +51,10 @@ export default async function SubmissionsPage({
           <h1 className="text-page-title">Submissions</h1>
           <p className="text-page-subtitle mt-1">Review, confirm, and send performance feedback emails.</p>
         </div>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <SearchField className="w-full sm:w-72" placeholder="Search employee…" />
         <ScopeFilter organizations={organizations} />
       </div>
 
@@ -50,35 +69,40 @@ export default async function SubmissionsPage({
       {submissions.length === 0 ? (
         <EmptyState className="mt-6" title="No submissions" description="Nothing has been submitted for this filter yet." />
       ) : (
-        <Card className="mt-6 overflow-x-auto p-0">
-          <table className="w-full min-w-[860px] text-table">
+        <Card className="mt-5 overflow-hidden p-0">
+          <div className="max-h-[calc(100vh-21rem)] overflow-auto">
+          <table className="data-table table-sticky-head min-w-[880px]">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-left text-metadata">
-                <th className="px-4 py-2.5 font-medium">Employee</th>
-                <th className="px-4 py-2.5 font-medium">Organization</th>
-                <th className="px-4 py-2.5 font-medium">Department</th>
-                <th className="px-4 py-2.5 font-medium">Period</th>
-                <th className="px-4 py-2.5 font-medium">Template</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium" />
+              <tr>
+                <th>Employee</th>
+                {showOrgColumn && <th>Organization</th>}
+                <th>Department</th>
+                <th>Period</th>
+                <th>Template</th>
+                <th>Status</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {submissions.map((s) => (
-                <tr key={s.id} className="border-b border-border-subtle transition-ui last:border-0 hover:bg-accent/40">
-                  <td className="px-4 py-2.5 font-medium text-foreground">
-                    <Link href={`/submissions/${s.id}`} className="hover:text-brand hover:underline">
-                      {s.employeeName}
+                <tr key={s.id}>
+                  <td>
+                    <Link href={`/submissions/${s.id}`} className="flex items-center gap-2.5 group">
+                      <Avatar name={s.employeeName} />
+                      <div className="min-w-0 leading-tight">
+                        <p className="truncate font-medium text-foreground group-hover:text-brand">{s.employeeName}</p>
+                        <p className="truncate text-metadata">{s.employeeEmail}</p>
+                      </div>
                     </Link>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{s.organizationName}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{s.departmentName}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{formatReviewPeriod(s.reviewPeriod)}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">Template {s.templateType}</td>
-                  <td className="px-4 py-2.5">
+                  {showOrgColumn && <td className="text-muted-foreground">{s.organizationName}</td>}
+                  <td className="text-muted-foreground">{s.departmentName}</td>
+                  <td className="text-muted-foreground">{formatReviewPeriod(s.reviewPeriod)}</td>
+                  <td className="text-muted-foreground">Template {s.templateType}</td>
+                  <td>
                     <StatusBadge status={s.status} />
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td>
                     <div className="flex items-center justify-end gap-2">
                       {s.status === "SUBMITTED" && (
                         <>
@@ -97,6 +121,7 @@ export default async function SubmissionsPage({
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>

@@ -7,6 +7,7 @@ import { StatTile } from "@/components/shared/stat-tile";
 import { ScopeFilter } from "@/components/hr/scope-filter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
+import { cn } from "@/lib/utils";
 
 export default async function OverviewPage({
   searchParams,
@@ -57,16 +58,24 @@ export default async function OverviewPage({
             const complete = d.totalEmployees > 0 && d.submitted >= d.totalEmployees;
             return (
               <div key={d.departmentId}>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{d.departmentName}</span>
-                  <span className={complete ? "text-success" : "text-muted-foreground"}>
+                <div className="flex items-center justify-between gap-3 text-sm">
+                  <span className="flex items-center gap-1.5 font-medium text-foreground">
+                    {d.departmentName}
+                    {complete && <CheckCircle2 className="h-3.5 w-3.5 text-success" aria-label="complete" />}
+                  </span>
+                  <span className={cn("tabular-nums", complete ? "text-success" : "text-muted-foreground")}>
                     {d.submitted} / {d.totalEmployees}
                   </span>
                 </div>
-                <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                {/* 4px rounded data-end anchored to the baseline; the track
+                    stays recessive so the filled portion carries the reading. */}
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className={`h-full rounded-full transition-all duration-500 ease-out ${complete ? "bg-success" : "bg-brand"}`}
-                    style={{ width: `${pct}%` }}
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-500 ease-out",
+                      complete ? "bg-success" : "bg-brand"
+                    )}
+                    style={{ width: `${Math.max(pct, pct > 0 ? 3 : 0)}%` }}
                   />
                 </div>
               </div>

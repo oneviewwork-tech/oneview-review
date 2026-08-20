@@ -28,7 +28,7 @@ export function AppShell({
         signOut={signOutAction}
       />
       <div className="flex min-w-0 flex-1 flex-col pl-[var(--sidebar-w)]">
-        <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">{children}</main>
+        <main className="mx-auto w-full min-w-0 max-w-5xl flex-1 px-6 py-8">{children}</main>
       </div>
     </div>
   );

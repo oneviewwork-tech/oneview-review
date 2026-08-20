@@ -44,7 +44,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           <Undo2 className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">Sent back to the Department Head</p>
-            <p className="opacity-90">{submission.revisionNote}</p>
+            <p className="break-words opacity-90">{submission.revisionNote}</p>
           </div>
         </div>
       )}
@@ -61,7 +61,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           <Row label="Submitted by" value={submission.departmentHeadName} />
           <div>
             <p className="text-metadata mb-1">Performance Feedback</p>
-            <p className="whitespace-pre-wrap rounded-lg bg-muted p-3 text-foreground">{submission.feedback}</p>
+            <p className="whitespace-pre-wrap break-words rounded-lg bg-muted p-3 text-foreground">{submission.feedback}</p>
           </div>
         </CardContent>
       </Card>
@@ -73,7 +73,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
         <CardContent>
           <p className="text-metadata mb-1">Subject</p>
           <p className="mb-4 font-medium text-foreground">{email.subject}</p>
-          <div className="rounded-lg border border-border bg-surface-sunken p-4 text-sm text-foreground [&>p]:mb-3 [&>p:last-child]:mb-0" dangerouslySetInnerHTML={{ __html: email.html }} />
+          <div className="break-words rounded-lg border border-border bg-surface-sunken p-4 text-sm text-foreground [&>p]:mb-3 [&>p:last-child]:mb-0" dangerouslySetInnerHTML={{ __html: email.html }} />
         </CardContent>
       </Card>
 
@@ -82,7 +82,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             <p className="font-medium">Last send attempt failed</p>
-            <p className="text-destructive/80">{submission.emailError}</p>
+            <p className="break-words text-destructive/80">{submission.emailError}</p>
           </div>
         </div>
       )}
@@ -110,9 +110,9 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4">
-      <span className="text-metadata">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
+    <div className="flex items-start justify-between gap-4">
+      <span className="text-metadata shrink-0">{label}</span>
+      <span className="min-w-0 break-words text-right font-medium text-foreground">{value}</span>
     </div>
   );
 }

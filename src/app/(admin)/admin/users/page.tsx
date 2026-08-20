@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/shared/avatar";
+import { ActiveBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AddUserDialog } from "@/components/admin/add-user-dialog";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
@@ -30,39 +32,48 @@ export default async function AdminUsersPage() {
       {users.length === 0 ? (
         <EmptyState className="mt-6" title="No users yet" description="Add the first user to get started." />
       ) : (
-        <Card className="mt-6 overflow-x-auto p-0">
-          <table className="w-full text-table">
+        <Card className="mt-6 overflow-hidden p-0"><div className="overflow-auto">
+          <table className="data-table min-w-[760px]">
             <thead>
-              <tr className="border-b border-border bg-muted/40 text-left text-metadata">
-                <th className="px-4 py-2.5 font-medium">Name</th>
-                <th className="px-4 py-2.5 font-medium">Email</th>
-                <th className="px-4 py-2.5 font-medium">Role</th>
-                <th className="px-4 py-2.5 font-medium">Scope</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium" />
+              <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th>Scope</th>
+                <th>Status</th>
+                <th className="text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-border-subtle transition-ui last:border-0 hover:bg-accent/40">
-                  <td className="px-4 py-2.5 font-medium text-foreground">{u.name}</td>
-                  <td className="px-4 py-2.5 text-muted-foreground">{u.email}</td>
-                  <td className="px-4 py-2.5">
+                <tr key={u.id}>
+                  <td>
+                    <div className="flex items-center gap-2.5">
+                      <Avatar name={u.name} />
+                      <div className="min-w-0 leading-tight">
+                        <p className="truncate font-medium text-foreground">{u.name}</p>
+                        <p className="truncate text-metadata">{u.email}</p>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
                     <Badge variant="brand">{ROLE_LABEL[u.role]}</Badge>
                   </td>
-                  <td className="px-4 py-2.5 text-muted-foreground">
+                  <td className="text-muted-foreground">
                     {u.department ? `${u.department.organization.name} — ${u.department.name}` : "All organizations"}
                   </td>
-                  <td className="px-4 py-2.5">
-                    <Badge variant={u.isActive ? "success" : "neutral"}>{u.isActive ? "Active" : "Inactive"}</Badge>
+                  <td>
+                    <ActiveBadge active={u.isActive} />
                   </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <ToggleActiveButton id={u.id} isActive={u.isActive} action={toggleUserActive} />
+                  <td>
+                    <div className="row-actions flex justify-end">
+                      <ToggleActiveButton id={u.id} isActive={u.isActive} action={toggleUserActive} />
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>

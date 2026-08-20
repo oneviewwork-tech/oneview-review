@@ -38,6 +38,9 @@
   --color-surface-sunken: var(--surface-sunken);
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
+  --color-brand-faint: var(--brand-faint);
+  --color-brand-faint-strong: var(--brand-faint-strong);
+  --color-table-head: var(--table-head);
   --radius-sm: calc(var(--radius) * 0.55);
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
@@ -91,10 +94,17 @@
   --destructive-subtle: #fdeaea;
   --destructive-foreground: #ffffff;
 
-  --border: #e4e6eb;
-  --border-subtle: #eef0f3;
-  --input: #ced0d4;
+  --border: #dfe3e8;
+  --border-subtle: #eceff3;
+  --input: #cbd2d9;
   --ring: rgb(8 102 255 / 0.45);
+
+  /* Interaction tints. Row hover and selection are the brand hue at very low
+     alpha rather than a gray, so "the app is responding" reads as the same
+     blue as every other affordance. */
+  --brand-faint: rgb(8 102 255 / 0.055);
+  --brand-faint-strong: rgb(8 102 255 / 0.1);
+  --table-head: #f3f5f8;
 }
 
 .dark {
@@ -136,6 +146,10 @@
   --border-subtle: #303132;
   --input: #4e4f50;
   --ring: rgb(45 136 255 / 0.5);
+
+  --brand-faint: rgb(45 136 255 / 0.1);
+  --brand-faint-strong: rgb(45 136 255 / 0.16);
+  --table-head: #2c2d2e;
 }
 
 body {
@@ -189,8 +203,59 @@ body {
     position: sticky;
     top: 0;
     z-index: 1;
-    background: var(--color-muted);
+    background: var(--color-table-head);
   }
+}
+
+/* The one table style, so every table in the app agrees on density,
+   header treatment and hover feedback. */
+@utility data-table {
+  width: 100%;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  font-variant-numeric: tabular-nums;
+  border-collapse: separate;
+  border-spacing: 0;
+
+  & thead th {
+    background: var(--color-table-head);
+    color: var(--color-muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 0.625rem 0.875rem;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  & tbody td {
+    padding: 0.5rem 0.875rem;
+    border-bottom: 1px solid var(--color-border-subtle);
+    vertical-align: middle;
+  }
+
+  & tbody tr:last-child td { border-bottom: 0; }
+
+  & tbody tr {
+    transition: background-color 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  & tbody tr:hover { background: var(--color-brand-faint); }
+}
+
+/* Row actions stay quiet until the row is hovered or focused, so 89 rows
+   don't read as 89 buttons competing with the data. */
+/* Row actions sit back until the row is hovered or focused, so ~90 rows
+   don't read as ~90 buttons competing with the data — but they stay
+   visible rather than hidden, or the column looks broken until you
+   happen to hover it. */
+@utility row-actions {
+  opacity: 0.45;
+  transition: opacity 120ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  tr:hover &, tr:focus-within & { opacity: 1; }
+  @media (hover: none) { opacity: 1; }
 }
 
 @utility popover-panel {
@@ -263,6 +328,10 @@ body {
 
 @layer base {
   html { scroll-behavior: smooth; }
+
+  /* A long unbroken string — a pasted token, "testing,testing,testing…" —
+     must wrap instead of forcing the entire page to scroll sideways. */
+  p, h1, h2, h3, h4, li, dd, dt { overflow-wrap: anywhere; }
 
   /* Scrollbars are styled rather than hidden: a hidden scrollbar removes
      the only cue that a region scrolls at all. */

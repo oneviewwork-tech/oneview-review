@@ -36,7 +36,11 @@ export default async function LoginPage({
           />
           <span aria-hidden className="h-6 w-px bg-white/25" />
           <div className="leading-tight">
-            <p className="text-sm font-bold tracking-tight">Haris&amp;Co.</p>
+            {/* Both entities are served by this one app, so the lockup names
+                both rather than implying it belongs to Haris & Co. alone. */}
+            <p className="text-sm font-bold tracking-tight">
+              Haris&amp;Co. <span className="text-white/45">&times;</span> HACA
+            </p>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
               ONEVIEW Review
             </p>
