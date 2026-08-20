@@ -179,5 +179,6 @@ npm run test         # vitest
 npm run db:seed          # create the two organizations (+ optional first admin)
 npm run db:import -- <xlsx> [ORG]   # import employees from HR's spreadsheet
 npm run db:cleanup-demo  # remove leftover @company.com demo records
+npm run db:reset-submissions  # clear all submissions + Email History (keeps people)
 npx prisma studio        # browse the database
 ```

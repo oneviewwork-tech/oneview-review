@@ -12,7 +12,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "postinstall": "prisma generate",
     "db:import": "tsx prisma/import-hrms.ts",
-    "db:cleanup-demo": "tsx prisma/cleanup-demo.ts"
+    "db:cleanup-demo": "tsx prisma/cleanup-demo.ts",
+    "db:reset-submissions": "tsx prisma/reset-submissions.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.8.0",
