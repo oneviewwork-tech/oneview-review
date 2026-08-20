@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { formatReviewPeriod } from "@/domain/review/period";
 
 export default async function EmailHistoryPage() {
@@ -12,8 +13,10 @@ export default async function EmailHistoryPage() {
 
   return (
     <div className="animate-fade-up">
-      <h1 className="text-page-title">Email History</h1>
-      <p className="text-page-subtitle mt-1">Every performance review email that has been sent.</p>
+      <PageHeader
+        title="Email History"
+        description="Every performance review email that has been delivered, with its provider message ID."
+      />
 
       {sent.length === 0 ? (
         <EmptyState className="mt-6" title="No emails sent yet" description="Sent emails will appear here once submissions are confirmed and delivered." />

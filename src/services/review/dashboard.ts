@@ -4,10 +4,19 @@ import { reviewPeriodForDate } from "@/domain/review/period";
 export interface OverviewCounters {
   period: Date;
   totalEmployees: number;
+  /** Anything that has reached HR at all, in any state. */
   submitted: number;
+  /** Employees with no feedback yet this cycle. */
   pending: number;
+  /** Cumulative: confirmed or already sent. */
   confirmed: number;
   sent: number;
+
+  /* Discrete pipeline stages — each submission counts in exactly one, so
+     these read as a funnel rather than as overlapping totals. */
+  awaitingReview: number;
+  needsRevision: number;
+  readyToSend: number;
 }
 
 export interface DepartmentProgress {
@@ -55,6 +64,9 @@ export async function getOverview(
     pending: Math.max(totalEmployees - submitted, 0),
     confirmed: count("CONFIRMED") + count("SENT"),
     sent: count("SENT"),
+    awaitingReview: count("SUBMITTED"),
+    needsRevision: count("NEEDS_REVISION"),
+    readyToSend: count("CONFIRMED"),
   };
 }
 

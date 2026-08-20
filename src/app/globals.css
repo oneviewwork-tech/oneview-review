@@ -157,11 +157,30 @@ body {
   color: var(--color-foreground);
 }
 
+/* ── Type scale ──────────────────────────────────────────────────────
+   Six roles with real contrast between them. Hierarchy is carried by
+   size *and* weight *and* colour, so a page reads in the right order
+   even in a squint test. */
+@utility text-display {
+  font-size: 2rem;
+  line-height: 2.375rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
 @utility text-page-title {
   font-size: 1.5rem;
   line-height: 2rem;
   font-weight: 700;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
+}
+/* Small uppercase label above a title or section — orients without shouting. */
+@utility text-eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
 }
 @utility text-page-subtitle {
   font-size: 0.875rem;
@@ -177,7 +196,15 @@ body {
   font-size: 1.75rem;
   line-height: 2.25rem;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;
+  font-variant-numeric: proportional-nums;
+}
+/* The single number a view leads with — exactly one per screen. */
+@utility text-metric-lg {
+  font-size: 2.5rem;
+  line-height: 2.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   font-variant-numeric: proportional-nums;
 }
 @utility text-metadata {
@@ -256,6 +283,18 @@ body {
 
   tr:hover &, tr:focus-within & { opacity: 1; }
   @media (hover: none) { opacity: 1; }
+}
+
+/* Three elevation levels, used deliberately: raised = a card that can be
+   acted on, overlay = something floating above the page. */
+@utility elevation-flat {
+  box-shadow: var(--shadow-xs);
+}
+@utility elevation-raised {
+  box-shadow: var(--shadow-sm);
+}
+@utility elevation-overlay {
+  box-shadow: var(--shadow-lg);
 }
 
 @utility popover-panel {

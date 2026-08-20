@@ -1,11 +1,12 @@
 import { requireReviewAccess } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { ReviewForm } from "@/components/review/review-form";
 import { getScopeOrganizations } from "@/services/review/scope";
+import { formatReviewPeriod, reviewPeriodForDate } from "@/domain/review/period";
 
 export default async function ReviewPage() {
-  const { departmentId, isAdmin } = await requireReviewAccess();
+  const { user, departmentId, isAdmin } = await requireReviewAccess();
 
   // A Department Head only ever sees their own department's employees. An
   // Admin has no department, so they pick organization then department and
@@ -20,23 +21,17 @@ export default async function ReviewPage() {
   ]);
 
   return (
-    <div className="mx-auto max-w-2xl animate-fade-up">
-      <h1 className="text-page-title">New Review</h1>
-      <p className="text-page-subtitle mt-1">
-        {isAdmin
-          ? "Submit monthly feedback for any employee."
-          : "Submit monthly feedback for an employee in your department."}
-      </p>
-
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>Performance feedback</CardTitle>
-          <CardDescription>Select an employee, pick a template, and describe their performance.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ReviewForm employees={employees} organizations={organizations} />
-        </CardContent>
-      </Card>
+    <div className="animate-fade-up space-y-6">
+      <PageHeader
+        eyebrow={formatReviewPeriod(reviewPeriodForDate(new Date()))}
+        title="New Review"
+        description={
+          isAdmin
+            ? "Submit monthly feedback for any employee. Pick a template, write the feedback, and see the exact email before you submit."
+            : "Submit monthly feedback for someone in your department. Pick a template, write the feedback, and see the exact email before you submit."
+        }
+      />
+      <ReviewForm employees={employees} organizations={organizations} submitterEmail={user.email} />
     </div>
   );
 }

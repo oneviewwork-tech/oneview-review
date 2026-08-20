@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { formatReviewPeriod } from "@/domain/review/period";
 
@@ -18,8 +19,10 @@ export default async function MySubmissionsPage() {
 
   return (
     <div className="animate-fade-up">
-      <h1 className="text-page-title">My Submissions</h1>
-      <p className="text-page-subtitle mt-1">Feedback you&apos;ve submitted and its review status.</p>
+      <PageHeader
+        title="My Submissions"
+        description="Feedback you have submitted, and where each one has got to."
+      />
 
       {submissions.length === 0 ? (
         <EmptyState className="mt-6" title="No submissions yet" description="Feedback you submit will show up here." />

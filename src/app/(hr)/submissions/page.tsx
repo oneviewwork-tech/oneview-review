@@ -10,6 +10,7 @@ import { ConfirmButton } from "@/components/hr/confirm-button";
 import { RequestRevisionButton } from "@/components/hr/request-revision-button";
 import { SendAllButton } from "@/components/hr/send-all-button";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { getScopeOrganizations, resolveScope } from "@/services/review/scope";
 import { formatReviewPeriod } from "@/domain/review/period";
 
@@ -46,12 +47,10 @@ export default async function SubmissionsPage({
 
   return (
     <div className="animate-fade-up">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-page-title">Submissions</h1>
-          <p className="text-page-subtitle mt-1">Review, confirm, and send performance feedback emails.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Submissions"
+        description="Read each submission, preview the exact email, then confirm it or send it back for revision."
+      />
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <SearchField className="w-full sm:w-72" placeholder="Search employee…" />

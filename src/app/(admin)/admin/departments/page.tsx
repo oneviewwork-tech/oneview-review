@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AddDepartmentDialog } from "@/components/admin/add-department-dialog";
 
@@ -16,13 +17,11 @@ export default async function AdminDepartmentsPage() {
 
   return (
     <div className="animate-fade-up">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-page-title">Departments</h1>
-          <p className="text-page-subtitle mt-1">Grouped by organization. Employees and Department Heads belong to one.</p>
-        </div>
-        <AddDepartmentDialog organizations={organizations.map((o) => ({ id: o.id, name: o.name }))} />
-      </div>
+      <PageHeader
+        title="Departments"
+        description="Grouped by organization. Every employee and Department Head belongs to exactly one."
+        actions={<AddDepartmentDialog organizations={organizations.map((o) => ({ id: o.id, name: o.name }))} />}
+      />
 
       <div className="mt-6 space-y-6">
         {organizations.map((org) => (

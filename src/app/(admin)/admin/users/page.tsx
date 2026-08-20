@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/shared/avatar";
 import { ActiveBadge } from "@/components/shared/status-badge";
@@ -21,13 +22,11 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="animate-fade-up">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-page-title">Users</h1>
-          <p className="text-page-subtitle mt-1">Department Heads, HR, and Admin logins.</p>
-        </div>
-        <AddUserDialog organizations={organizations} />
-      </div>
+      <PageHeader
+        title="Users"
+        description="Who can sign in, and what each of them can reach."
+        actions={<AddUserDialog organizations={organizations} />}
+      />
 
       {users.length === 0 ? (
         <EmptyState className="mt-6" title="No users yet" description="Add the first user to get started." />

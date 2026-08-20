@@ -6,6 +6,7 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { sendAllConfirmed } from "@/actions/hr.actions";
+import { useToast } from "@/components/ui/toast";
 
 export function SendAllButton({
   count,
@@ -18,8 +19,8 @@ export function SendAllButton({
 }) {
   const [isPending, startTransition] = useTransition();
   const [confirming, setConfirming] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
   const router = useRouter();
+  const { push } = useToast();
 
   if (count === 0) return null;
 
@@ -29,7 +30,6 @@ export function SendAllButton({
         <Send className="h-4 w-4" />
         Send All Confirmed ({count})
       </Button>
-      {result && <span className="text-sm text-muted-foreground">{result}</span>}
 
       <Dialog
         open={confirming}
@@ -46,7 +46,7 @@ export function SendAllButton({
             onClick={() =>
               startTransition(async () => {
                 const res = await sendAllConfirmed({ organizationId, departmentId });
-                setResult(res.message ?? null);
+                push(res.success ? "success" : "error", res.message ?? "Emails sent.");
                 setConfirming(false);
                 router.refresh();
               })

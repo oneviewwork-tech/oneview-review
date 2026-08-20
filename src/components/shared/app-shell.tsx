@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/shared/app-sidebar";
+import { ToastProvider } from "@/components/ui/toast";
 import { signOutAction } from "@/actions/auth.actions";
 import { navigationForRole } from "@/lib/navigation";
 import type { UserRole } from "@prisma/client";
@@ -20,6 +21,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   return (
+    <ToastProvider>
     <div className="flex min-h-full flex-1">
       <AppSidebar
         sections={navigationForRole(role)}
@@ -31,5 +33,6 @@ export function AppShell({
         <main className="mx-auto w-full min-w-0 max-w-5xl flex-1 px-6 py-8">{children}</main>
       </div>
     </div>
+    </ToastProvider>
   );
 }

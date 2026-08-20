@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Avatar } from "@/components/shared/avatar";
 import { ActiveBadge } from "@/components/shared/status-badge";
@@ -50,17 +51,15 @@ export default async function AdminEmployeesPage({
 
   return (
     <div className="animate-fade-up">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-page-title">Employees</h1>
-          <p className="text-page-subtitle mt-1">
-            {q || scope.organizationId || scope.departmentId
-              ? `${employees.length} of ${total} shown`
-              : `${total} people a Department Head can submit feedback for.`}
-          </p>
-        </div>
-        <EmployeeDialog organizations={organizations} />
-      </div>
+      <PageHeader
+        title="Employees"
+        description={
+          q || scope.organizationId || scope.departmentId
+            ? `${employees.length} of ${total} shown`
+            : `${total} people a Department Head can submit feedback for.`
+        }
+        actions={<EmployeeDialog organizations={organizations} />}
+      />
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <SearchField className="w-full sm:w-72" placeholder="Search name, email, or role…" />

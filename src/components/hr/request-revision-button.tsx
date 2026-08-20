@@ -8,6 +8,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { requestRevision } from "@/actions/hr.actions";
+import { useToast } from "@/components/ui/toast";
 
 export function RequestRevisionButton({ submissionId, size = "sm" }: { submissionId: string; size?: "sm" | "default" }) {
   const [open, setOpen] = useState(false);
@@ -15,6 +16,7 @@ export function RequestRevisionButton({ submissionId, size = "sm" }: { submissio
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+  const { push } = useToast();
 
   function submit() {
     startTransition(async () => {
@@ -26,6 +28,7 @@ export function RequestRevisionButton({ submissionId, size = "sm" }: { submissio
       setOpen(false);
       setNote("");
       setError(null);
+      push("success", res.message ?? "Sent back for revision.");
       router.refresh();
     });
   }
