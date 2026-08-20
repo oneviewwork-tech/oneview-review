@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   PenSquare,
@@ -51,10 +52,15 @@ export function AppSidebar({
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[var(--sidebar-w)] flex-col border-r border-sidebar-border bg-sidebar">
-      <div className="flex h-14 items-center gap-2 px-4">
-        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand text-[13px] font-bold text-brand-foreground">
-          O
-        </span>
+      <div className="flex h-16 items-center gap-2.5 px-4">
+        <Image
+          src="/oneview-review-mark.png"
+          alt=""
+          width={32}
+          height={32}
+          priority
+          className="h-8 w-8 rounded-lg shadow-xs ring-1 ring-border"
+        />
         <span className="text-[15px] font-bold tracking-tight text-foreground">
           ONEVIEW <span className="font-semibold text-muted-foreground">Review</span>
         </span>

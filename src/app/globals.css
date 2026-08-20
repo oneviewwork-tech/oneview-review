@@ -182,6 +182,17 @@ body {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Long tables keep their header visible while the body scrolls, so the
+   column a value belongs to is never off-screen. */
+@utility table-sticky-head {
+  & thead th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-muted);
+  }
+}
+
 @utility popover-panel {
   background: var(--color-popover);
   color: var(--color-popover-foreground);
@@ -191,24 +202,56 @@ body {
 }
 
 /* ── Motion ─────────────────────────────────────────────────────────── */
+/* Both animations end at `transform: none`, not `translateY(0)`.
+   An element left holding *any* transform becomes the containing block for
+   its `position: fixed` descendants, which silently re-anchors modals and
+   popovers to the page instead of the viewport. Ending at `none` clears it. */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 @keyframes scaleIn {
   from { opacity: 0; transform: scale(0.97) translateY(-2px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
 }
 
 @utility animate-fade-up {
   animation: fadeUp 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 @utility animate-scale-in {
-  animation: scaleIn 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: scaleIn 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@utility animate-slide-down {
+  animation: slideDown 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Staggered list/table entrance. Capped so a long table doesn't take
+   seconds to finish revealing itself. */
+@utility stagger-children {
+  & > * {
+    animation: fadeUp 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  & > *:nth-child(1) { animation-delay: 0ms; }
+  & > *:nth-child(2) { animation-delay: 20ms; }
+  & > *:nth-child(3) { animation-delay: 40ms; }
+  & > *:nth-child(4) { animation-delay: 60ms; }
+  & > *:nth-child(5) { animation-delay: 80ms; }
+  & > *:nth-child(n + 6) { animation-delay: 100ms; }
+}
+
+/* One global brake for motion. Anything decorative must be reachable by
+   this rule, so a user who asks for less motion actually gets it. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-fade-up, .animate-scale-in { animation: none; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 @layer base {
@@ -219,12 +262,28 @@ body {
 }
 
 @layer base {
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  html { scroll-behavior: smooth; }
+
+  /* Scrollbars are styled rather than hidden: a hidden scrollbar removes
+     the only cue that a region scrolls at all. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #c4c7cb; border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #a8abaf; }
-  .dark ::-webkit-scrollbar-thumb { background: #4e4f50; }
-  .dark ::-webkit-scrollbar-thumb:hover { background: #5f6061; }
+  ::-webkit-scrollbar-thumb {
+    background: #c4c7cb;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover { background: #a8abaf; background-clip: content-box; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  .dark ::-webkit-scrollbar-thumb { background: #4e4f50; background-clip: content-box; }
+  .dark ::-webkit-scrollbar-thumb:hover { background: #6a6b6c; background-clip: content-box; }
+  * { scrollbar-width: thin; scrollbar-color: #c4c7cb transparent; }
+  .dark * { scrollbar-color: #4e4f50 transparent; }
+
+  /* Native controls the app can't restyle should still match the theme. */
+  input, textarea, select, button { font: inherit; }
+  input[type="password"]::-ms-reveal { display: none; }
 }
 
 @layer base {
