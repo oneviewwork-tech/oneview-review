@@ -52,7 +52,15 @@ model User {
   auditEvents        AuditEvent[]
 }
 
-model Department {
+/// One of the company's legal entities. The business runs two — Haris & Co.
+/// and Haris & Co. Academy (HACA) — and they have separate people, separate
+/// departments and separate review cycles, so every department, employee and
+/// submission hangs off exactly one organization.
+///
+/// HR and Admin work across both and choose which one they're looking at; a
+/// Department Head never sees the picker at all, since their department
+/// already pins them to one organization.
+model Organization {
   id   String @id @default(cuid())
   name String @unique
   code String @unique
@@ -60,18 +68,51 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users       User[]
+  departments Department[]
   employees   Employee[]
   submissions FeedbackSubmission[]
 }
 
+model Department {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  name           String
+  code           String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  employees   Employee[]
+  submissions FeedbackSubmission[]
+
+  // Scoped per organization rather than globally: both entities can
+  // legitimately run their own "Marketing" or "HR".
+  @@unique([organizationId, name])
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
 model Employee {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  departmentId String
-  department   Department @relation(fields: [departmentId], references: [id])
-  isActive     Boolean  @default(true)
+  id             String       @id @default(cuid())
+  name           String
+  email          String       @unique
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  departmentId   String
+  department     Department   @relation(fields: [departmentId], references: [id])
+
+  /// Job title as recorded by HR. Display-only — never used for routing or
+  /// permissions.
+  designation String?
+  /// Who this person reports to, stored as the plain name HR maintains
+  /// rather than a self-relation: the source data references managers who
+  /// are not themselves employee records (C-suite without mailboxes), so a
+  /// foreign key would reject rows HR considers perfectly valid.
+  reportingManagerName String?
+
+  isActive Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -79,6 +120,7 @@ model Employee {
   submissions FeedbackSubmission[]
 
   @@index([departmentId])
+  @@index([organizationId])
 }
 
 // ── Feedback workflow ────────────────────────────────────────────────
@@ -110,6 +152,10 @@ model FeedbackSubmission {
   // and the email that was actually sent must not silently change.
   employeeName  String
   employeeEmail String
+
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id])
+  organizationName String
 
   departmentId   String
   department     Department @relation(fields: [departmentId], references: [id])
@@ -158,6 +204,7 @@ model FeedbackSubmission {
   // earlier than the send step).
   @@unique([employeeId, reviewPeriod])
   @@index([departmentId, reviewPeriod])
+  @@index([organizationId, reviewPeriod])
   @@index([status])
   // The dashboard groups by status/department filtered on reviewPeriod
   // alone; the composite index above can't serve that, since departmentId

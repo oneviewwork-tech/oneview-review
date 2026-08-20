@@ -26,12 +26,16 @@ export interface DepartmentProgress {
  * the region. One groupBy returns every status bucket at once, and both
  * queries are issued concurrently.
  */
-export async function getOverview(period: Date = reviewPeriodForDate(new Date())): Promise<OverviewCounters> {
+export async function getOverview(
+  period: Date = reviewPeriodForDate(new Date()),
+  organizationId?: string
+): Promise<OverviewCounters> {
+  const scope = organizationId ? { organizationId } : {};
   const [totalEmployees, byStatus] = await Promise.all([
-    prisma.employee.count({ where: { isActive: true } }),
+    prisma.employee.count({ where: { isActive: true, ...scope } }),
     prisma.feedbackSubmission.groupBy({
       by: ["status"],
-      where: { reviewPeriod: period },
+      where: { reviewPeriod: period, ...scope },
       _count: { _all: true },
     }),
   ]);
@@ -61,11 +65,15 @@ export async function getOverview(period: Date = reviewPeriodForDate(new Date())
  * submission row and calling .length on them — the old shape moved one row
  * per employee across the wire just to discard it.
  */
-export async function getDepartmentProgress(period: Date = reviewPeriodForDate(new Date())): Promise<DepartmentProgress[]> {
+export async function getDepartmentProgress(
+  period: Date = reviewPeriodForDate(new Date()),
+  organizationId?: string
+): Promise<DepartmentProgress[]> {
+  const scope = organizationId ? { organizationId } : {};
   const [departments, employeeCounts, submissionCounts] = await Promise.all([
-    prisma.department.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
-    prisma.employee.groupBy({ by: ["departmentId"], where: { isActive: true }, _count: { _all: true } }),
-    prisma.feedbackSubmission.groupBy({ by: ["departmentId"], where: { reviewPeriod: period }, _count: { _all: true } }),
+    prisma.department.findMany({ where: scope, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.employee.groupBy({ by: ["departmentId"], where: { isActive: true, ...scope }, _count: { _all: true } }),
+    prisma.feedbackSubmission.groupBy({ by: ["departmentId"], where: { reviewPeriod: period, ...scope }, _count: { _all: true } }),
   ]);
 
   const employeesBy = new Map(employeeCounts.map((r) => [r.departmentId, r._count._all]));

@@ -1191,3 +1191,23 @@ Status as of the initial build session (2026-08-14):
 - An Admin has no department, so the review form shows a **department picker** for them, and `createSubmission` derives the department **from the employee record**, never from the request — nothing to forge. Verified end-to-end: admin submitted for SEO, row recorded `departmentName: SEO` with the admin as submitter.
 
 **The tailwind-merge collision bit twice**, so it is now fixed at the root: `cn()` in `src/lib/utils.ts` uses `extendTailwindMerge` declaring every custom `text-*` typography utility as a font-size group. Without it, `cn("text-metric", "text-brand")` silently dropped the size. **Any new `text-`prefixed utility added to globals.css must also be listed there.**
+
+## 35.3 Fourth pass: two organizations, real HR data, production ops
+
+**Driven by:** *"make this to production grade for vercel"*, *"this platform is just for a month 2 or 3 days of use only so server or this system dont be iddle"*, and the HR spreadsheet — *"we have two organazation haris&co., haca so this one is from haris&co. so in the hr fields first show this two options"*.
+
+**Organizations.** New `Organization` model (`Haris & Co.` / `HARISCO`, `Haris & Co. Academy` / `HACA`, with fixed ids `org_harisco`/`org_haca` so the migration and importer can rely on them). `Department`, `Employee` and `FeedbackSubmission` all carry `organizationId`; submissions also snapshot `organizationName` alongside the existing employee/department snapshots. Department name/code uniqueness is now **per organization** (`@@unique([organizationId, name])`) — both entities may legitimately run their own "Marketing".
+
+The migration (`20260820100000_organizations`) was **hand-written**, not generated: the new columns are required and the tables already had rows, so each is added nullable, backfilled (departments → Haris & Co.; employees and submissions inherit from their department), then set NOT NULL.
+
+**HR scope picker.** `ScopeFilter` (organization first, then department, per the user's instruction) drives `?org=&department=` on Overview, Submissions and Admin → Employees. `resolveScope()` in `src/services/review/scope.ts` only honours a department that genuinely belongs to the selected organization, so a hand-edited URL can't show one entity's data under another's heading. `sendAllConfirmed` takes the same scope, so "Send All" never reaches past the list HR is looking at.
+
+**Real data.** `prisma/import-hrms.ts` (`npm run db:import -- <xlsx> [ORG]`) imports HR's workbook: one sheet per department, matched on email so re-running converges instead of duplicating. It handles two layouts (`tech`/`CSUITE` use `"Name - Designation"` with no header) and **reports-and-skips rows with no email** rather than inventing one — 89 employees across 12 departments imported; 3 C-suite rows skipped (no mailbox). Employees gained `designation` and `reportingManagerName` (a plain string, deliberately not a self-relation: the sheet references managers who aren't employee records).
+
+`prisma/seed.ts` was rewritten to seed **only the two organizations** plus an optional admin from `SEED_ADMIN_PASSWORD` — no invented employees. `prisma/cleanup-demo.ts` removed the old `@company.com` demo data but deliberately **keeps** `admin@company.com`/`hr@company.com` so nobody is locked out of the live deployment.
+
+**Employee edit finally exists** (`updateEmployee`) — the gap flagged earlier. One `EmployeeDialog` serves both add and edit. Past submissions keep the name/email they were sent with, by design.
+
+**Idle/wake-up — the important tradeoff.** The user asked for the system to "not be idle". A 24/7 pinger is the obvious answer and is **wrong here**: Neon meters compute hours on smaller plans, so keeping it awake all month can exhaust the allowance and suspend the database — worse than the cold start it avoids. Built `GET /api/warm` (unauthenticated, runs dashboard-shaped queries) and documented warming *on the days of use* instead. Measured: cold 2142 ms → warm 64 ms.
+
+**Route-group gotcha repeated:** new admin pages were first written to `src/app/(admin)/departments/` and had to move to `src/app/(admin)/admin/departments/` — a route group adds no URL segment. This is the second time; check the built route list, not the folder name.

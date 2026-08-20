@@ -1,86 +1,61 @@
+/**
+ * Seeds only what the app cannot function without: the two organizations,
+ * and a first Admin login to sign in with.
+ *
+ * It deliberately creates no fake departments or employees — real people
+ * come from HR's spreadsheet via `npm run db:import`, and invented ones
+ * would be indistinguishable from real records once they were mixed in.
+ *
+ * Safe to re-run: everything here is an upsert, and an existing admin's
+ * password is never overwritten.
+ */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-const DEPARTMENTS = [
-  { code: "WEBDEV", name: "Web Development" },
-  { code: "SEO", name: "SEO" },
-  { code: "SOCIAL", name: "Social Media" },
-  { code: "BRAND", name: "Branding" },
-  { code: "PM", name: "Project Management" },
+const ORGANIZATIONS = [
+  { id: "org_harisco", name: "Haris & Co.", code: "HARISCO" },
+  { id: "org_haca", name: "Haris & Co. Academy", code: "HACA" },
 ];
 
-const EMPLOYEES: Record<string, string[]> = {
-  WEBDEV: ["Rahul Kumar", "Anjali Menon", "Niyas Ahmed", "Fathima Rasheed"],
-  SEO: ["Vikram Rao", "Sneha Pillai"],
-  SOCIAL: ["Arjun Nair", "Divya Krishnan"],
-  BRAND: ["Kiran Das", "Meera Suresh"],
-  PM: ["Sanjay Varma", "Priya Balan"],
-};
-
-function emailFor(name: string) {
-  return `${name.toLowerCase().replace(/[^a-z]+/g, ".")}@company.com`;
-}
-
 async function main() {
-  const password = await bcrypt.hash("ChangeMe123!", 10);
-
-  const departments = new Map<string, string>();
-  for (const dept of DEPARTMENTS) {
-    const d = await prisma.department.upsert({
-      where: { code: dept.code },
-      update: {},
-      create: dept,
-    });
-    departments.set(dept.code, d.id);
-  }
-
-  for (const [code, names] of Object.entries(EMPLOYEES)) {
-    const departmentId = departments.get(code)!;
-    for (const name of names) {
-      await prisma.employee.upsert({
-        where: { email: emailFor(name) },
-        update: {},
-        create: { name, email: emailFor(name), departmentId },
-      });
-    }
-  }
-
-  // One Department Head per department, one HR user, one Admin.
-  for (const dept of DEPARTMENTS) {
-    const email = `head.${dept.code.toLowerCase()}@company.com`;
-    await prisma.user.upsert({
-      where: { email },
-      update: {},
-      create: {
-        email,
-        name: `${dept.name} Head`,
-        passwordHash: password,
-        role: "DEPARTMENT_HEAD",
-        departmentId: departments.get(dept.code)!,
-        mustChangePassword: true,
-      },
+  for (const org of ORGANIZATIONS) {
+    await prisma.organization.upsert({
+      where: { code: org.code },
+      update: { name: org.name },
+      create: org,
     });
   }
+  console.log(`Organizations ready: ${ORGANIZATIONS.map((o) => o.code).join(", ")}`);
 
-  await prisma.user.upsert({
-    where: { email: "hr@company.com" },
-    update: {},
-    create: { email: "hr@company.com", name: "HR Team", passwordHash: password, role: "HR", mustChangePassword: true },
+  const email = (process.env.SEED_ADMIN_EMAIL ?? "admin@harisand.co").toLowerCase();
+  const password = process.env.SEED_ADMIN_PASSWORD;
+
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    console.log(`Admin ${email} already exists — password left untouched.`);
+    return;
+  }
+
+  if (!password) {
+    console.log(
+      `\nNo admin created. To create one, set SEED_ADMIN_PASSWORD (and optionally SEED_ADMIN_EMAIL) and re-run:\n` +
+        `  SEED_ADMIN_PASSWORD='a-strong-password' npm run db:seed`
+    );
+    return;
+  }
+
+  await prisma.user.create({
+    data: {
+      email,
+      name: process.env.SEED_ADMIN_NAME ?? "Administrator",
+      passwordHash: await bcrypt.hash(password, 10),
+      role: "ADMIN",
+      mustChangePassword: true,
+    },
   });
-
-  await prisma.user.upsert({
-    where: { email: "admin@company.com" },
-    update: {},
-    create: { email: "admin@company.com", name: "System Admin", passwordHash: password, role: "ADMIN", mustChangePassword: true },
-  });
-
-  console.log("Seed complete.");
-  console.log("All accounts share the password: ChangeMe123!");
-  console.log("Department Heads: head.webdev@company.com, head.seo@company.com, head.social@company.com, head.brand@company.com, head.pm@company.com");
-  console.log("HR: hr@company.com");
-  console.log("Admin: admin@company.com");
+  console.log(`Created admin ${email} (must change password on first login).`);
 }
 
 main()
@@ -88,6 +63,4 @@ main()
     console.error(e);
     process.exit(1);
   })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+  .finally(() => prisma.$disconnect());

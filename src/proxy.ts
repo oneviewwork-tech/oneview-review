@@ -100,6 +100,11 @@ function withSecurityHeaders(req: Parameters<Parameters<typeof auth>[0]>[0]) {
 
   const res = NextResponse.next({ request: { headers: requestHeaders } });
   res.headers.set("content-security-policy", csp);
+  // Every route this proxy matches renders someone's performance feedback.
+  // None of it may sit in a shared cache, or in the back/forward cache of a
+  // shared machine after sign-out. Scoped to the matcher rather than set
+  // globally in next.config.ts so /_next/static stays cacheable.
+  res.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
   return res;
 }
 

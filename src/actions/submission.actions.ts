@@ -39,7 +39,10 @@ export async function createSubmission(
   } else {
     employee = await requireOwnsEmployee(departmentId!, parsed.data.employeeId);
   }
-  const department = await prisma.department.findUniqueOrThrow({ where: { id: employee.departmentId } });
+  const department = await prisma.department.findUniqueOrThrow({
+    where: { id: employee.departmentId },
+    include: { organization: { select: { id: true, name: true } } },
+  });
 
   const now = new Date();
   const reviewPeriod = reviewPeriodForDate(now);
@@ -59,6 +62,8 @@ export async function createSubmission(
         employeeId: employee.id,
         employeeName: employee.name,
         employeeEmail: employee.email,
+        organizationId: department.organization.id,
+        organizationName: department.organization.name,
         departmentId: department.id,
         departmentName: department.name,
         departmentHeadId: user.id,

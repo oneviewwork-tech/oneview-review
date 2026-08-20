@@ -10,39 +10,57 @@ import { Textarea } from "@/components/ui/textarea";
 import { TemplateSelector } from "./template-selector";
 import { createSubmission } from "@/actions/submission.actions";
 import type { TemplateType } from "@prisma/client";
+import type { ScopeOrganization } from "@/components/hr/scope-filter";
 
 export interface ReviewEmployee {
   id: string;
   name: string;
   email: string;
   departmentId: string;
+  organizationId: string;
+  designation: string | null;
 }
+
+const MAX_FEEDBACK = 4000;
 
 export function ReviewForm({
   employees,
-  departments,
+  organizations,
 }: {
   employees: ReviewEmployee[];
-  /** Only populated for Admins, who must choose a department first. */
-  departments: { id: string; name: string }[];
+  /** Only populated for Admins, who choose organization then department. */
+  organizations: ScopeOrganization[];
 }) {
   const [state, formAction, isPending] = useActionState(createSubmission, undefined);
-  const isAdmin = departments.length > 0;
+  const isAdmin = organizations.length > 0;
 
-  const [departmentId, setDepartmentId] = useState(departments[0]?.id ?? "");
+  const [organizationId, setOrganizationId] = useState(organizations[0]?.id ?? "");
+  const departmentOptions = useMemo(
+    () => organizations.find((o) => o.id === organizationId)?.departments ?? [],
+    [organizations, organizationId]
+  );
+  const [departmentId, setDepartmentId] = useState(departmentOptions[0]?.id ?? "");
+
   const visibleEmployees = useMemo(
     () => (isAdmin ? employees.filter((e) => e.departmentId === departmentId) : employees),
     [isAdmin, employees, departmentId]
   );
-
   const [employeeId, setEmployeeId] = useState(visibleEmployees[0]?.id ?? "");
   const [templateType, setTemplateType] = useState<TemplateType | "">("");
   const [feedback, setFeedback] = useState("");
 
-  // Keep the employee selection valid when the department changes, and
-  // clear the form after a successful submit. Both are derived from
-  // changing values, so they're adjusted during render rather than in an
-  // effect (React's own guidance) — no extra render pass.
+  // Keep the cascade consistent when a parent choice changes, and clear the
+  // form after a successful submit. Both derive from changing values, so
+  // they're adjusted during render rather than in an effect (React's own
+  // guidance) — no extra render pass.
+  const [lastOrg, setLastOrg] = useState(organizationId);
+  if (organizationId !== lastOrg) {
+    setLastOrg(organizationId);
+    const first = departmentOptions[0]?.id ?? "";
+    setDepartmentId(first);
+    setEmployeeId(employees.find((e) => e.departmentId === first)?.id ?? "");
+  }
+
   const [lastDept, setLastDept] = useState(departmentId);
   if (departmentId !== lastDept) {
     setLastDept(departmentId);
@@ -71,15 +89,27 @@ export function ReviewForm({
   return (
     <form action={formAction} className="space-y-5">
       {isAdmin && (
-        <div className="space-y-1.5">
-          <Label htmlFor="departmentId">Department</Label>
-          <Dropdown
-            id="departmentId"
-            value={departmentId}
-            onChange={setDepartmentId}
-            options={departments.map((d) => ({ value: d.id, label: d.name }))}
-          />
-        </div>
+        <>
+          <div className="space-y-1.5">
+            <Label htmlFor="organizationId">Organization</Label>
+            <Dropdown
+              id="organizationId"
+              value={organizationId}
+              onChange={setOrganizationId}
+              options={organizations.map((o) => ({ value: o.id, label: o.name }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="departmentId">Department</Label>
+            <Dropdown
+              id="departmentId"
+              value={departmentId}
+              onChange={setDepartmentId}
+              placeholder={departmentOptions.length ? "Select a department" : "No departments yet"}
+              options={departmentOptions.map((d) => ({ value: d.id, label: d.name }))}
+            />
+          </div>
+        </>
       )}
 
       <div className="space-y-1.5">
@@ -90,7 +120,11 @@ export function ReviewForm({
           value={employeeId}
           onChange={setEmployeeId}
           placeholder={visibleEmployees.length ? "Select an employee" : "No employees in this department"}
-          options={visibleEmployees.map((e) => ({ value: e.id, label: e.name }))}
+          options={visibleEmployees.map((e) => ({
+            value: e.id,
+            label: e.name,
+            hint: e.designation ?? undefined,
+          }))}
         />
       </div>
 
@@ -105,7 +139,12 @@ export function ReviewForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="feedback">Performance Feedback</Label>
+        <div className="flex items-baseline justify-between">
+          <Label htmlFor="feedback">Performance Feedback</Label>
+          <span className={`text-metadata ${feedback.length > MAX_FEEDBACK ? "text-destructive" : ""}`}>
+            {feedback.length} / {MAX_FEEDBACK}
+          </span>
+        </div>
         <Textarea
           id="feedback"
           name="feedback"
@@ -114,6 +153,9 @@ export function ReviewForm({
           placeholder="Describe this employee's performance this month…"
           required
         />
+        <p className="text-metadata">
+          This is the only part that changes — the rest of the email comes from the template you picked.
+        </p>
         {state && !state.success && state.fieldErrors?.feedback && (
           <p className="text-sm text-destructive">{state.fieldErrors.feedback[0]}</p>
         )}

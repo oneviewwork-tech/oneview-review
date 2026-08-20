@@ -11,12 +11,16 @@ import { Dropdown } from "@/components/ui/dropdown";
 import { createUser } from "@/actions/admin.actions";
 import { ROLE_OPTIONS } from "@/lib/roles";
 import type { UserRole } from "@prisma/client";
+import type { ScopeOrganization } from "@/components/hr/scope-filter";
 
 function randomPassword() {
   return Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-6).toUpperCase() + "!1";
 }
 
-export function AddUserDialog({ departments }: { departments: { id: string; name: string }[] }) {
+export function AddUserDialog({ organizations }: { organizations: ScopeOrganization[] }) {
+  const departments = organizations.flatMap((o) =>
+    o.departments.map((d) => ({ id: d.id, name: `${o.name} — ${d.name}` }))
+  );
   const [open, setOpen] = useState(false);
   const [role, setRole] = useState<UserRole>("DEPARTMENT_HEAD");
   const [departmentId, setDepartmentId] = useState(departments[0]?.id ?? "");

@@ -134,12 +134,23 @@ async function deliverAndRecord(
   return result;
 }
 
-/** Bulk-sends every CONFIRMED submission (§20). SENT ones are excluded by the status filter (§23). */
-export async function sendAllConfirmed(departmentId?: string): Promise<ActionResult<{ sent: number; failed: number }>> {
+/**
+ * Bulk-sends every CONFIRMED submission (§20), honouring whatever scope HR
+ * currently has selected so "Send All" never reaches past the list they are
+ * looking at. SENT ones are excluded by the status filter (§23).
+ */
+export async function sendAllConfirmed(scope?: {
+  organizationId?: string;
+  departmentId?: string;
+}): Promise<ActionResult<{ sent: number; failed: number }>> {
   const user = await requireHrAccess();
 
   const confirmed = await prisma.feedbackSubmission.findMany({
-    where: { status: "CONFIRMED", ...(departmentId ? { departmentId } : {}) },
+    where: {
+      status: "CONFIRMED",
+      ...(scope?.organizationId ? { organizationId: scope.organizationId } : {}),
+      ...(scope?.departmentId ? { departmentId: scope.departmentId } : {}),
+    },
   });
   if (confirmed.length === 0) return fail("No confirmed submissions are ready to send.");
 

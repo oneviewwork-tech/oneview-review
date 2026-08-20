@@ -30,9 +30,25 @@ Part of the ONEVIEW family: Projects · People · Finance · Review.
 npm install
 cp .env.example .env      # then fill in real values
 npx prisma migrate deploy # or `migrate dev` when changing the schema
-npm run db:seed
+npm run db:seed           # creates the two organizations
 npm run dev
 ```
+
+### Loading real people
+
+`db:seed` creates the organizations and nothing else — no invented employees,
+because a fake record is indistinguishable from a real one once mixed in.
+Real people come from HR's spreadsheet:
+
+```bash
+npm run db:import -- "path/to/HRMS DATA - DEP.xlsx" HARISCO
+```
+
+One sheet per department; the importer matches employees on email, so
+correcting the sheet and re-running updates in place rather than duplicating.
+Rows without an email address are **reported and skipped** — email is how an
+employee is identified here and where their review is delivered, so it cannot
+be invented. Pass `HACA` as the last argument to load the other organization.
 
 ### Environment variables
 
@@ -72,7 +88,45 @@ Three things follow from that, all already in place:
 2. **Every page issues its queries in parallel.** The HR overview runs five queries in ~117 ms total, barely more than one round trip — not 5 × 85 ms. When adding a query to a page, add it to the existing `Promise.all` rather than `await`ing it separately.
 3. **Counts are aggregated in Postgres** (`groupBy`), never by fetching rows and calling `.length`.
 
-Neon's serverless compute also auto-suspends after ~5 minutes idle, so the first request after a quiet period pays a wake-up cost. `src/lib/prisma.ts` pings every 4 minutes to prevent that when running on a long-lived server, and skips it on Vercel where there's no persistent event loop between invocations.
+### Idle, wake-up, and the 2–3 days a month this is actually used
+
+This system is used intensively for a few days each review cycle and sits
+untouched the rest of the month. Two things go cold in between:
+
+- **The serverless function** — no warm instance to reuse, so the first
+  request pays a cold start.
+- **The Neon compute** — it auto-suspends after ~5 minutes idle.
+
+Measured on this deployment: a cold request through `/api/warm` took
+**2142 ms**; once warm the same call took **64 ms**. So the wake-up cost is
+real, but it is paid *once*, by whoever signs in first.
+
+**`GET /api/warm`** exists to pay that cost before a person does. It runs the
+same shape of query the dashboard opens with, so the connection, the query
+planner and the Prisma client are all warm afterwards. It needs no auth, so
+an external pinger can call it.
+
+**Do not leave a pinger running around the clock.** Pinging every few minutes
+keeps the database compute awake 24/7, and Neon meters compute hours on its
+smaller plans — a month of that can exhaust the allowance and get the
+database suspended, which is a far worse outage than a 2-second cold start.
+Check your plan's compute-hour allowance before scheduling anything.
+
+For a system used a few days a month, the sensible options are, in order:
+
+1. **Warm it up manually** on the morning of a review day — open
+   `https://<your-domain>/api/warm` once, and everything after it is fast.
+   Costs nothing, and covers the actual need.
+2. **Schedule a pinger only for the days you're using it** (UptimeRobot,
+   cron-job.org — both free) hitting `/api/warm` every 5 minutes, and pause
+   it when the cycle is done.
+3. **Disable scale-to-zero in Neon** if you're on a plan that allows it and
+   want it permanently instant — this trades compute hours for latency, so
+   only do it knowingly.
+
+`src/lib/prisma.ts` also pings every 4 minutes when running on a long-lived
+server (local `next start`), and deliberately skips it on Vercel, where there
+is no persistent event loop between invocations for the timer to live in.
 
 ### Production notes
 
@@ -89,7 +143,7 @@ Neon's serverless compute also auto-suspends after ~5 minutes idle, so the first
 | --- | --- |
 | **Department Head** | Submit feedback for employees **in their own department only** (enforced server-side, not just in the dropdown); revise submissions HR sends back; see their own submission history. |
 | **HR** | See all departments, review and confirm submissions, request revisions, bulk-send confirmed emails, resend individual emails, view email history. |
-| **Admin** | Manage departments, employees, and user logins. |
+| **Admin** | Everything HR and a Department Head can do, plus managing organizations' departments, employees, and user logins. Admins have no department of their own, so they pick organization → department when submitting a review. |
 
 ---
 
@@ -122,6 +176,8 @@ Template copy lives in one place — `src/domain/email/templates.ts`. The only p
 npm run dev          # dev server
 npm run build        # production build
 npm run test         # vitest
-npm run db:seed      # seed departments, employees, and starter users
-npx prisma studio    # browse the database
+npm run db:seed          # create the two organizations (+ optional first admin)
+npm run db:import -- <xlsx> [ORG]   # import employees from HR's spreadsheet
+npm run db:cleanup-demo  # remove leftover @company.com demo records
+npx prisma studio        # browse the database
 ```

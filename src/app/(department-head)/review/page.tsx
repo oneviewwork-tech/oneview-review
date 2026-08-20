@@ -2,22 +2,21 @@ import { requireReviewAccess } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ReviewForm } from "@/components/review/review-form";
+import { getScopeOrganizations } from "@/services/review/scope";
 
 export default async function ReviewPage() {
   const { departmentId, isAdmin } = await requireReviewAccess();
 
   // A Department Head only ever sees their own department's employees. An
-  // Admin has no department, so they pick one first and the employee list
-  // follows that choice (still re-validated server-side on submit).
-  const [employees, departments] = await Promise.all([
+  // Admin has no department, so they pick organization then department and
+  // the employee list follows — still re-validated server-side on submit.
+  const [employees, organizations] = await Promise.all([
     prisma.employee.findMany({
       where: { isActive: true, ...(departmentId ? { departmentId } : {}) },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true, departmentId: true },
+      select: { id: true, name: true, email: true, departmentId: true, organizationId: true, designation: true },
     }),
-    isAdmin
-      ? prisma.department.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } })
-      : Promise.resolve([]),
+    isAdmin ? getScopeOrganizations() : Promise.resolve([]),
   ]);
 
   return (
@@ -35,7 +34,7 @@ export default async function ReviewPage() {
           <CardDescription>Select an employee, pick a template, and describe their performance.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ReviewForm employees={employees} departments={departments} />
+          <ReviewForm employees={employees} organizations={organizations} />
         </CardContent>
       </Card>
     </div>
