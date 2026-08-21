@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   PenSquare,
@@ -12,12 +11,14 @@ import {
   Building2,
   Users,
   UserCog,
+  LogOut,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { UserMenu } from "@/components/shared/user-menu";
+import { BrandLogo } from "@/components/shared/brand-logo";
+import { CycleCard } from "@/components/shared/cycle-card";
 import type { NavSection, NavIcon } from "@/lib/navigation";
-import type { NavBadges } from "@/services/review/nav-badges";
+import type { NavBadges, SidebarCycle } from "@/services/review/sidebar";
 
 const ICONS: Record<NavIcon, LucideIcon> = {
   PenSquare,
@@ -30,11 +31,17 @@ const ICONS: Record<NavIcon, LucideIcon> = {
   UserCog,
 };
 
+/**
+ * Laid out to match ONEVIEW People: wordmark lockup, then the signed-in
+ * person in a card at the top, then grouped navigation. Someone who uses
+ * both products should not have to relearn where anything is.
+ */
 export function AppSidebar({
   sections,
   userName,
   userMeta,
   badges,
+  cycle,
   signOut,
 }: {
   sections: NavSection[];
@@ -42,95 +49,100 @@ export function AppSidebar({
   userMeta: string;
   /** Outstanding work, keyed by nav href. */
   badges: NavBadges;
+  cycle: SidebarCycle;
   signOut: () => Promise<void>;
 }) {
   const pathname = usePathname();
-  // Group headings earn their space only when there is more than one group
-  // to tell apart. For a Department Head or HR — who see a single group —
-  // the heading just repeats the product name back at them.
-  const showSectionLabels = sections.length > 1;
+  const initials = userName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[var(--sidebar-w)] flex-col border-r border-sidebar-border bg-sidebar">
-      <div className="flex h-16 items-center gap-2.5 px-4">
-        <Image
-          src="/oneview-review-mark.png"
-          alt=""
-          width={34}
-          height={34}
-          priority
-          className="h-[34px] w-[34px] rounded-[10px] ring-1 ring-border"
-        />
-        <span className="min-w-0 leading-tight">
-          <span className="block truncate text-[15px] font-bold tracking-tight text-foreground">ONEVIEW</span>
-          <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Review
-          </span>
-        </span>
+      <div className="flex h-16 shrink-0 items-center px-4">
+        <BrandLogo />
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-2">
+      {/* The account sits at the top, as in People — it identifies whose
+          data you are looking at before you read any of it. */}
+      <div className="mx-3 mb-3 flex items-center gap-2.5 rounded-xl bg-muted p-2.5">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-brand-foreground">
+          {initials}
+        </span>
+        <div className="min-w-0 flex-1 leading-tight">
+          <p className="truncate text-sm font-semibold text-foreground">{userName}</p>
+          <p className="truncate text-xs text-muted-foreground">{userMeta}</p>
+        </div>
+        <form action={signOut}>
+          <button
+            type="submit"
+            aria-label="Sign out"
+            title="Sign out"
+            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-ui hover:bg-card hover:text-destructive active:scale-95"
+          >
+            <LogOut className="size-4" />
+          </button>
+        </form>
+      </div>
+
+      <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 pb-3">
         {sections.map((section) => (
-          <div key={section.label} className={showSectionLabels ? "mb-5" : "mb-2"}>
-            {showSectionLabels && <p className="text-eyebrow px-2.5 pb-1.5">{section.label}</p>}
-            <ul className="space-y-0.5">
-              {section.items.map((item) => {
-                const Icon = ICONS[item.icon];
-                const active = pathname === item.href || pathname.startsWith(item.href + "/");
-                const count = badges[item.href] ?? 0;
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={active ? "page" : undefined}
+          <div key={section.label} className="flex flex-col gap-1">
+            <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {section.label}
+            </p>
+            {section.items.map((item) => {
+              const Icon = ICONS[item.icon];
+              const active = pathname === item.href || pathname.startsWith(item.href + "/");
+              const count = badges[item.href] ?? 0;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-ui",
+                    active
+                      ? "bg-brand font-semibold text-brand-foreground shadow-xs"
+                      : "font-medium text-foreground hover:bg-accent"
+                  )}
+                >
+                  <Icon
+                    className={cn(
+                      "size-[18px] shrink-0 transition-ui motion-safe:group-hover:scale-110",
+                      active ? "text-brand-foreground" : "text-muted-foreground group-hover:text-foreground"
+                    )}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                  {count > 0 && (
+                    <span
+                      // Titled, because a bare number in a nav only means
+                      // something if you already know what it counts.
+                      title={`${count} waiting on you`}
                       className={cn(
-                        "group relative flex items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-sm transition-ui",
-                        active
-                          ? "bg-brand-subtle font-semibold text-brand"
-                          : "font-medium text-foreground hover:bg-accent"
+                        "flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
+                        active ? "bg-white/25 text-brand-foreground" : "bg-brand text-brand-foreground"
                       )}
                     >
-                      {/* A rail rather than only a fill: it marks the edge of
-                          the nav so the current page is findable in
-                          peripheral vision. */}
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand transition-ui",
-                          active ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      <Icon
-                        className={cn(
-                          "h-[18px] w-[18px] shrink-0 transition-ui",
-                          active ? "text-brand" : "text-muted-foreground group-hover:text-foreground"
-                        )}
-                      />
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                      {count > 0 && (
-                        <span
-                          // Titled, because a bare number in a nav is only
-                          // meaningful if you already know what it counts.
-                          title={`${count} waiting on you`}
-                          className={cn(
-                            "flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
-                            active ? "bg-brand text-brand-foreground" : "bg-brand/10 text-brand"
-                          )}
-                        >
-                          {count > 99 ? "99+" : count}
-                        </span>
-                      )}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+                      {count > 99 ? "99+" : count}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </div>
         ))}
       </nav>
 
-      <div className="border-t border-sidebar-border p-2.5">
-        <UserMenu userName={userName} userMeta={userMeta} signOut={signOut} />
+      {/* This product has far fewer destinations than People, so the column
+          would otherwise trail off into empty space. The cycle summary is
+          the one thing worth knowing from every page. */}
+      <div className="shrink-0 border-t border-sidebar-border p-2.5">
+        <CycleCard cycle={cycle} />
       </div>
     </aside>
   );

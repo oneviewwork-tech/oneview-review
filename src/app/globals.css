@@ -8,6 +8,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono);
+  --font-brand: var(--font-fredoka), ui-rounded, "Segoe UI Rounded", sans-serif;
   --color-brand: var(--brand);
   --color-brand-hover: var(--brand-hover);
   --color-brand-foreground: var(--brand-foreground);
@@ -54,7 +55,7 @@
 :root {
   color-scheme: light;
   --radius: 0.5rem;
-  --sidebar-w: 15rem;
+  --sidebar-w: 17rem;
 
   /* Neutral, near-white surfaces. The page sits on a soft gray so white
      cards and the white sidebar read as distinct planes. */
