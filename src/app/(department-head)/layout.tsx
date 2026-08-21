@@ -7,6 +7,7 @@ export default async function DepartmentHeadLayout({ children }: { children: Rea
 
   return (
     <AppShell
+      userId={user.id}
       role={user.role}
       userName={user.name}
       // A Department Head is identified by their department; an Admin

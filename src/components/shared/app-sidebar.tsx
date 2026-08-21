@@ -12,13 +12,12 @@ import {
   Building2,
   Users,
   UserCog,
-  KeyRound,
-  LogOut,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { UserMenu } from "@/components/shared/user-menu";
 import type { NavSection, NavIcon } from "@/lib/navigation";
+import type { NavBadges } from "@/services/review/nav-badges";
 
 const ICONS: Record<NavIcon, LucideIcon> = {
   PenSquare,
@@ -35,20 +34,21 @@ export function AppSidebar({
   sections,
   userName,
   userMeta,
+  badges,
   signOut,
 }: {
   sections: NavSection[];
   userName: string;
   userMeta: string;
+  /** Outstanding work, keyed by nav href. */
+  badges: NavBadges;
   signOut: () => Promise<void>;
 }) {
   const pathname = usePathname();
-  const initials = userName
-    .split(" ")
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase();
+  // Group headings earn their space only when there is more than one group
+  // to tell apart. For a Department Head or HR — who see a single group —
+  // the heading just repeats the product name back at them.
+  const showSectionLabels = sections.length > 1;
 
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-[var(--sidebar-w)] flex-col border-r border-sidebar-border bg-sidebar">
@@ -56,40 +56,70 @@ export function AppSidebar({
         <Image
           src="/oneview-review-mark.png"
           alt=""
-          width={32}
-          height={32}
+          width={34}
+          height={34}
           priority
-          className="h-8 w-8 rounded-lg shadow-xs ring-1 ring-border"
+          className="h-[34px] w-[34px] rounded-[10px] ring-1 ring-border"
         />
-        <span className="text-[15px] font-bold tracking-tight text-foreground">
-          ONEVIEW <span className="font-semibold text-muted-foreground">Review</span>
+        <span className="min-w-0 leading-tight">
+          <span className="block truncate text-[15px] font-bold tracking-tight text-foreground">ONEVIEW</span>
+          <span className="block truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Review
+          </span>
         </span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-2">
+      <nav className="flex-1 overflow-y-auto px-3 pb-2">
         {sections.map((section) => (
-          <div key={section.label} className="mb-5">
-            <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              {section.label}
-            </p>
+          <div key={section.label} className={showSectionLabels ? "mb-5" : "mb-2"}>
+            {showSectionLabels && <p className="text-eyebrow px-2.5 pb-1.5">{section.label}</p>}
             <ul className="space-y-0.5">
               {section.items.map((item) => {
                 const Icon = ICONS[item.icon];
                 const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                const count = badges[item.href] ?? 0;
                 return (
                   <li key={item.href}>
                     <Link
                       href={item.href}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-ui",
+                        "group relative flex items-center gap-2.5 rounded-lg py-2 pl-3 pr-2 text-sm transition-ui",
                         active
-                          ? "bg-brand-subtle text-brand"
-                          : "text-foreground hover:bg-accent"
+                          ? "bg-brand-subtle font-semibold text-brand"
+                          : "font-medium text-foreground hover:bg-accent"
                       )}
                     >
-                      <Icon className={cn("h-[18px] w-[18px] shrink-0", !active && "text-muted-foreground")} />
-                      {item.label}
+                      {/* A rail rather than only a fill: it marks the edge of
+                          the nav so the current page is findable in
+                          peripheral vision. */}
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand transition-ui",
+                          active ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      <Icon
+                        className={cn(
+                          "h-[18px] w-[18px] shrink-0 transition-ui",
+                          active ? "text-brand" : "text-muted-foreground group-hover:text-foreground"
+                        )}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      {count > 0 && (
+                        <span
+                          // Titled, because a bare number in a nav is only
+                          // meaningful if you already know what it counts.
+                          title={`${count} waiting on you`}
+                          className={cn(
+                            "flex h-5 min-w-[1.25rem] shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
+                            active ? "bg-brand text-brand-foreground" : "bg-brand/10 text-brand"
+                          )}
+                        >
+                          {count > 99 ? "99+" : count}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 );
@@ -99,37 +129,8 @@ export function AppSidebar({
         ))}
       </nav>
 
-      <div className="border-t border-sidebar-border p-3">
-        <div className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-xs font-semibold text-brand">
-            {initials}
-          </span>
-          <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-sm font-medium text-foreground">{userName}</p>
-            <p className="truncate text-metadata">{userMeta}</p>
-          </div>
-        </div>
-        <div className="mt-1 flex items-center gap-0.5">
-          <ThemeToggle />
-          <Link
-            href="/change-password"
-            aria-label="Change password"
-            title="Change password"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-ui hover:bg-accent hover:text-foreground"
-          >
-            <KeyRound className="h-4 w-4" />
-          </Link>
-          <form action={signOut} className="ml-auto">
-            <button
-              type="submit"
-              aria-label="Sign out"
-              title="Sign out"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-ui hover:bg-accent hover:text-foreground"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </form>
-        </div>
+      <div className="border-t border-sidebar-border p-2.5">
+        <UserMenu userName={userName} userMeta={userMeta} signOut={signOut} />
       </div>
     </aside>
   );

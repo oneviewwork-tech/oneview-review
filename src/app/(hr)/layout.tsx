@@ -6,7 +6,7 @@ export default async function HrLayout({ children }: { children: React.ReactNode
   const user = await requireHrAccess();
 
   return (
-    <AppShell role={user.role} userName={user.name} userMeta={ROLE_LABEL[user.role]}>
+    <AppShell userId={user.id} role={user.role} userName={user.name} userMeta={ROLE_LABEL[user.role]}>
       {children}
     </AppShell>
   );
