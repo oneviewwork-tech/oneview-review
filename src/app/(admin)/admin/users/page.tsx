@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/shared/avatar";
 import { ActiveBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
-import { AddUserDialog } from "@/components/admin/add-user-dialog";
+import { UserDialog } from "@/components/admin/user-dialog";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
 import { toggleUserActive } from "@/actions/admin.actions";
 import { ROLE_LABEL } from "@/lib/roles";
@@ -15,7 +15,7 @@ export default async function AdminUsersPage() {
   const [users, organizations] = await Promise.all([
     prisma.user.findMany({
       orderBy: { name: "asc" },
-      include: { department: { select: { name: true, organization: { select: { name: true } } } } },
+      include: { department: { select: { id: true, name: true, organization: { select: { id: true, name: true } } } } },
     }),
     getScopeOrganizations(),
   ]);
@@ -25,7 +25,7 @@ export default async function AdminUsersPage() {
       <PageHeader
         title="Users"
         description="Who can sign in, and what each of them can reach."
-        actions={<AddUserDialog organizations={organizations} />}
+        actions={<UserDialog organizations={organizations} />}
       />
 
       {users.length === 0 ? (
@@ -64,7 +64,18 @@ export default async function AdminUsersPage() {
                     <ActiveBadge active={u.isActive} />
                   </td>
                   <td>
-                    <div className="row-actions flex justify-end">
+                    <div className="row-actions flex justify-end gap-1">
+                      <UserDialog
+                        organizations={organizations}
+                        user={{
+                          id: u.id,
+                          name: u.name,
+                          email: u.email,
+                          role: u.role,
+                          departmentId: u.department?.id ?? null,
+                          organizationId: u.department?.organization.id ?? null,
+                        }}
+                      />
                       <ToggleActiveButton id={u.id} isActive={u.isActive} action={toggleUserActive} />
                     </div>
                   </td>

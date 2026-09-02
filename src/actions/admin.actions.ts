@@ -10,6 +10,7 @@ import {
   createEmployeeSchema,
   updateEmployeeSchema,
   createUserSchema,
+  updateUserSchema,
 } from "@/validators/admin";
 import { ok, fail, type ActionResult } from "@/lib/action-result";
 
@@ -212,6 +213,71 @@ export async function createUser(_prev: ActionResult | undefined, formData: Form
 
   revalidatePath("/admin/users");
   return ok(undefined, `User "${user.name}" created.`);
+}
+
+/**
+ * Corrects an existing user — role, scope (department), name/email, and
+ * optionally the password. Password is only touched when a non-empty
+ * value is submitted; leaving it blank keeps the current one untouched.
+ * A reset password forces mustChangePassword again, same as a fresh
+ * account, and clears any lockout counters.
+ */
+export async function updateUser(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  const parsed = updateUserSchema.safeParse({
+    userId: formData.get("userId"),
+    name: formData.get("name"),
+    email: formData.get("email"),
+    role: formData.get("role"),
+    departmentId: formData.get("departmentId") || undefined,
+    password: formData.get("password") || undefined,
+  });
+  if (!parsed.success) return fail("Please fix the highlighted fields.", parsed.error.flatten().fieldErrors);
+
+  const existing = await prisma.user.findUnique({ where: { id: parsed.data.userId } });
+  if (!existing) return fail("User not found.");
+
+  // Guard against locking yourself out — same spirit as the
+  // can't-deactivate-yourself check on toggleUserActive.
+  if (existing.id === admin.id && parsed.data.role !== "ADMIN") {
+    return fail("You cannot change your own role away from Admin.");
+  }
+
+  const clash = await prisma.user.findFirst({
+    where: { email: parsed.data.email, NOT: { id: existing.id } },
+  });
+  if (clash) return fail("Another user already uses that email.");
+
+  const departmentId = parsed.data.role === "DEPARTMENT_HEAD" ? (parsed.data.departmentId ?? null) : null;
+  const resettingPassword = !!parsed.data.password;
+  const passwordHash = resettingPassword ? await bcrypt.hash(parsed.data.password!, 10) : undefined;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({
+      where: { id: existing.id },
+      data: {
+        name: parsed.data.name,
+        email: parsed.data.email,
+        role: parsed.data.role,
+        departmentId,
+        ...(passwordHash
+          ? { passwordHash, mustChangePassword: true, failedLoginAttempts: 0, lockedUntil: null }
+          : {}),
+      },
+    });
+    await writeAuditEvent(tx, {
+      entityType: "User",
+      entityId: existing.id,
+      action: "USER_UPDATED",
+      actorUserId: admin.id,
+      actorEmail: admin.email,
+      before: { name: existing.name, email: existing.email, role: existing.role, departmentId: existing.departmentId },
+      after: { name: parsed.data.name, email: parsed.data.email, role: parsed.data.role, departmentId, passwordReset: resettingPassword },
+    });
+  });
+
+  revalidatePath("/admin/users");
+  return ok(undefined, `Updated ${parsed.data.name}.`);
 }
 
 export async function toggleUserActive(userId: string): Promise<ActionResult> {
