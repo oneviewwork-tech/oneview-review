@@ -417,7 +417,7 @@ async function main() {
 
   if (heads.length) {
     console.log(`
-Department Heads (${heads.length}):`);
+Team Leads (${heads.length}):`);
     for (const h of heads) {
       const creds = h.password ? `  password: ${h.password}` : "  (existing login, password unchanged)";
       console.log(`  ${h.department.padEnd(24)} ${h.name} <${h.email}>  — ${h.reason}`);

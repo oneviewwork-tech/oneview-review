@@ -19,7 +19,7 @@ export default async function AdminDepartmentsPage() {
     <div className="animate-fade-up">
       <PageHeader
         title="Departments"
-        description="Grouped by organization. Every employee and Department Head belongs to exactly one."
+        description="Grouped by organization. Every employee and Team Lead belongs to exactly one."
         actions={<AddDepartmentDialog organizations={organizations.map((o) => ({ id: o.id, name: o.name }))} />}
       />
 
@@ -43,7 +43,7 @@ export default async function AdminDepartmentsPage() {
                       <th className="px-4 py-2.5 font-medium">Name</th>
                       <th className="px-4 py-2.5 font-medium">Code</th>
                       <th className="px-4 py-2.5 font-medium">Employees</th>
-                      <th className="px-4 py-2.5 font-medium">Department Heads</th>
+                      <th className="px-4 py-2.5 font-medium">Team Leads</th>
                     </tr>
                   </thead>
                   <tbody>

@@ -43,7 +43,7 @@ export function RequestRevisionButton({ submissionId, size = "sm" }: { submissio
         open={open}
         onClose={() => setOpen(false)}
         title="Send back for revision"
-        description="The Department Head will see this note and can resubmit."
+        description="The Team Lead will see this note and can resubmit."
       >
         <div className="space-y-3">
           <div className="space-y-1.5">

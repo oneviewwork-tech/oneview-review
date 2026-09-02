@@ -11,7 +11,7 @@ export default async function RevisePage({ params }: { params: Promise<{ id: str
   const { id } = await params;
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id } });
-  // An Admin can revise anything; a Department Head only their own
+  // An Admin can revise anything; a Team Lead only their own
   // submissions, in their own department.
   const permitted =
     submission &&

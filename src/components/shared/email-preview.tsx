@@ -16,7 +16,7 @@ export interface EmailPreviewProps {
  * envelope fields first, then the body on its own sheet.
  *
  * Shared by the compose form and HR's review screen so the two can never
- * drift — what the Department Head previews while writing is the same
+ * drift — what the Team Lead previews while writing is the same
  * rendering HR approves before sending.
  */
 export function EmailPreview({ to, cc, subject, html, className, placeholder }: EmailPreviewProps) {

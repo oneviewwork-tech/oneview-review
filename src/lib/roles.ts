@@ -1,7 +1,14 @@
 import type { UserRole } from "@prisma/client";
 
+// Display name only — the DEPARTMENT_HEAD enum value, route group, and
+// field names (departmentHeadName/Email) are unchanged, since renaming
+// those would mean a schema migration for a label change. "Department
+// Head" implied one specific person; in practice anyone on the team
+// submits their teammates' feedback, so the app now calls the role what it
+// actually is. Access is identical — still scoped to exactly one
+// department, still the person a submission is attributed to.
 export const ROLE_LABEL: Record<UserRole, string> = {
-  DEPARTMENT_HEAD: "Department Head",
+  DEPARTMENT_HEAD: "Team Lead",
   HR: "HR",
   ADMIN: "Admin",
 };

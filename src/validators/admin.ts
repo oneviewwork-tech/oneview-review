@@ -32,6 +32,6 @@ export const createUserSchema = z
     password: z.string().min(8, "Password must be at least 8 characters."),
   })
   .refine((data) => data.role !== "DEPARTMENT_HEAD" || !!data.departmentId, {
-    message: "Select a department for a Department Head.",
+    message: "Select a department for a Team Lead.",
     path: ["departmentId"],
   });

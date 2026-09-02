@@ -48,7 +48,7 @@ export default async function OverviewPage({
       <PageHeader
         eyebrow={`${formatReviewPeriod(counters.period)} · ${scopeLabel}`}
         title="Performance Review"
-        description="Collect feedback from Department Heads, confirm it, then send every confirmed email in one action."
+        description="Collect feedback from Team Leads, confirm it, then send every confirmed email in one action."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <PeriodFilter periods={periods} />
@@ -110,7 +110,7 @@ export default async function OverviewPage({
 
                 {counters.needsRevision > 0 && (
                   <p className="rounded-lg border border-destructive/20 bg-destructive-subtle px-3 py-2 text-sm text-destructive">
-                    {counters.needsRevision} sent back for revision — waiting on the Department Head.
+                    {counters.needsRevision} sent back for revision — waiting on the Team Lead.
                   </p>
                 )}
               </CardContent>

@@ -58,7 +58,7 @@ export default async function LoginPage({
             inbox.
           </h1>
           <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-white/70">
-            Department Heads submit once. HR reviews, confirms, and sends every
+            Team Leads submit once. HR reviews, confirms, and sends every
             email in a single action.
           </p>
         </div>

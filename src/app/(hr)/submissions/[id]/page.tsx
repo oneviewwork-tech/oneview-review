@@ -46,7 +46,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
       </div>
 
       {submission.status === "NEEDS_REVISION" && submission.revisionNote && (
-        <Callout icon={Undo2} title="Sent back to the Department Head">
+        <Callout icon={Undo2} title="Sent back to the Team Lead">
           {submission.revisionNote}
         </Callout>
       )}
@@ -115,7 +115,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           </>
         )}
         {submission.status === "NEEDS_REVISION" && (
-          <p className="text-sm text-muted-foreground">Waiting on the Department Head to resubmit.</p>
+          <p className="text-sm text-muted-foreground">Waiting on the Team Lead to resubmit.</p>
         )}
       </div>
     </div>

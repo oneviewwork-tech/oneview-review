@@ -4,7 +4,7 @@ Internal platform for collecting and distributing employee performance feedback.
 
 **Collect → Review → Confirm → Send**
 
-Department Heads submit monthly feedback for employees in their own department. HR reviews each submission, previews the exact email that will go out, confirms it, and sends every confirmed email in one bulk action through Resend.
+Team Leads submit monthly feedback for employees in their own department. HR reviews each submission, previews the exact email that will go out, confirms it, and sends every confirmed email in one bulk action through Resend.
 
 Part of the ONEVIEW family: Projects · People · Finance · Review.
 
@@ -141,9 +141,9 @@ is no persistent event loop between invocations for the timer to live in.
 
 | Role | Can |
 | --- | --- |
-| **Department Head** | Submit feedback for employees **in their own department only** (enforced server-side, not just in the dropdown); revise submissions HR sends back; see their own submission history. |
+| **Team Lead** | Submit feedback for employees **in their own department only** (enforced server-side, not just in the dropdown); revise submissions HR sends back; see their own submission history. |
 | **HR** | See all departments, review and confirm submissions, request revisions, bulk-send confirmed emails, resend individual emails, view email history. |
-| **Admin** | Everything HR and a Department Head can do, plus managing organizations' departments, employees, and user logins. Admins have no department of their own, so they pick organization → department when submitting a review. |
+| **Admin** | Everything HR and a Team Lead can do, plus managing organizations' departments, employees, and user logins. Admins have no department of their own, so they pick organization → department when submitting a review. |
 
 ---
 
@@ -157,7 +157,7 @@ A, B, and C are **email template types, not performance grades**:
 | **B** | Development focus areas |
 | **C** | Performance improvement + action plan |
 
-Template copy lives in one place — `src/domain/email/templates.ts`. The only part that varies per submission is the Department Head's `{{feedback}}`; `{{employee_name}}`, `{{month_name}}` and `{{year}}` are filled in automatically. Never duplicate template copy elsewhere in the app.
+Template copy lives in one place — `src/domain/email/templates.ts`. The only part that varies per submission is the Team Lead's `{{feedback}}`; `{{employee_name}}`, `{{month_name}}` and `{{year}}` are filled in automatically. Never duplicate template copy elsewhere in the app.
 
 ---
 

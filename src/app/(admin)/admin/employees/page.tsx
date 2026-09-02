@@ -56,7 +56,7 @@ export default async function AdminEmployeesPage({
         description={
           q || scope.organizationId || scope.departmentId
             ? `${employees.length} of ${total} shown`
-            : `${total} people a Department Head can submit feedback for.`
+            : `${total} people a Team Lead can submit feedback for.`
         }
         actions={<EmployeeDialog organizations={organizations} />}
       />

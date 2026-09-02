@@ -32,7 +32,7 @@ export const requireSession = cache(async function requireSession() {
 export const requireUser = cache(async function requireUser() {
   const session = await requireSession();
   // The department is joined here rather than fetched separately: a
-  // Department Head's layout needs its name on every page, and the DB is in
+  // Team Lead's layout needs its name on every page, and the DB is in
   // Singapore, so a second round trip costs far more than this join.
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -56,7 +56,7 @@ async function logDenied(actorId: string, actorEmail: string, reason: string, me
 /**
  * Access to the review-submission surface.
  *
- * A Department Head is locked to their own department — this is the §8
+ * A Team Lead is locked to their own department — this is the §8
  * boundary and the reason `departmentId` is returned rather than taken
  * from the request. An Admin has no department of their own but may act
  * for any, so `departmentId` is null for them and the caller must resolve
@@ -70,7 +70,7 @@ export async function requireReviewAccess() {
   }
   if (user.role !== "DEPARTMENT_HEAD" || !user.departmentId) {
     void logDenied(user.id, user.email, "not_department_head");
-    throw new ForbiddenError("This page is only available to Department Heads.");
+    throw new ForbiddenError("This page is only available to Team Leads.");
   }
   return { user, departmentId: user.departmentId as string | null, isAdmin: false as const };
 }
@@ -98,7 +98,7 @@ export async function requireAdmin() {
 }
 
 /**
- * Throws unless a Department Head owns the given employee (i.e. the
+ * Throws unless a Team Lead owns the given employee (i.e. the
  * employee's departmentId matches theirs). This is the backend enforcement
  * the spec insists on (§8: "Do not rely only on frontend filtering") —
  * every submission-creating action must call this, not just filter the

@@ -42,7 +42,7 @@ export function NextAction({ counters, orgQuery }: { counters: OverviewCounters;
         icon={Clock}
         tone="neutral"
         title={`Waiting on feedback for ${counters.pending} ${counters.pending === 1 ? "person" : "people"}`}
-        body="Department Heads submit for their own team. Departments still outstanding are listed below."
+        body="Team Leads submit for their own team. Departments still outstanding are listed below."
         cta={{ label: "See who is missing", href: `/submissions${orgQuery}` }}
       />
     );

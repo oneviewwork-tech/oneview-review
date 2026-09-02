@@ -46,7 +46,7 @@ export async function getSidebarData(user: {
   });
   const period = latest?.reviewPeriod ?? reviewPeriodForDate(new Date());
 
-  // A Department Head only ever sees their own department, here as
+  // A Team Lead only ever sees their own department, here as
   // everywhere else.
   const scope = isHr ? {} : { departmentId: user.departmentId ?? "__none__" };
 

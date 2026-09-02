@@ -8,7 +8,7 @@ import { formatReviewPeriod, reviewPeriodForDate, selectablePeriods, formatPerio
 export default async function ReviewPage() {
   const { user, departmentId, isAdmin } = await requireReviewAccess();
 
-  // A Department Head only ever sees their own department's employees. An
+  // A Team Lead only ever sees their own department's employees. An
   // Admin has no department, so they pick organization then department and
   // the employee list follows — still re-validated server-side on submit.
   const [employees, organizations] = await Promise.all([

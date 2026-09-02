@@ -41,7 +41,7 @@ export async function confirmSubmission(submissionId: string): Promise<ActionRes
 }
 
 /**
- * HR returns a SUBMITTED submission to the Department Head with a note
+ * HR returns a SUBMITTED submission to the Team Lead with a note
  * (§13's optional NEEDS_REVISION state). Only ever explicit — nothing
  * auto-flags a submission for revision.
  */
@@ -74,7 +74,7 @@ export async function requestRevision(submissionId: string, note: string): Promi
   revalidatePath("/submissions");
   revalidatePath(`/submissions/${submissionId}`);
   revalidatePath("/overview");
-  return ok(undefined, "Sent back to the Department Head for revision.");
+  return ok(undefined, "Sent back to the Team Lead for revision.");
 }
 
 function buildEmail(submission: {

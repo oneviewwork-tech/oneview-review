@@ -11,7 +11,7 @@ import { ok, fail, type ActionResult } from "@/lib/action-result";
 /**
  * Submits feedback for an employee (§12).
  *
- * A Department Head is confined to their own department, re-checked
+ * A Team Lead is confined to their own department, re-checked
  * server-side via requireOwnsEmployee — the dropdown being filtered on the
  * client is not the boundary (§8). An Admin may act for any department, so
  * the department is taken from the employee record itself rather than from
@@ -104,10 +104,10 @@ export async function createSubmission(
 }
 
 /**
- * Department Head revises a submission HR sent back (§13's optional
+ * Team Lead revises a submission HR sent back (§13's optional
  * NEEDS_REVISION state) and puts it back in the queue as SUBMITTED.
  * Scoped to submissions the caller's own department owns and only from
- * NEEDS_REVISION — never lets a Department Head edit a submission HR has
+ * NEEDS_REVISION — never lets a Team Lead edit a submission HR has
  * already confirmed or sent.
  */
 export async function reviseSubmission(
@@ -126,7 +126,7 @@ export async function reviseSubmission(
   }
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id: parsed.data.submissionId } });
-  // An Admin may revise any submission; a Department Head only their own
+  // An Admin may revise any submission; a Team Lead only their own
   // department's.
   if (!submission || (!isAdmin && submission.departmentId !== departmentId)) {
     return fail("Submission not found.");
@@ -138,7 +138,7 @@ export async function reviseSubmission(
   // reviewPeriod is deliberately left untouched: it identifies which
   // month's review this is, set once when the submission first entered
   // the pipeline. A revision (however late) is still about that same
-  // month, not the month the Department Head happens to fix it in.
+  // month, not the month the Team Lead happens to fix it in.
   await prisma.$transaction(async (tx) => {
     await tx.feedbackSubmission.update({
       where: { id: submission.id },
