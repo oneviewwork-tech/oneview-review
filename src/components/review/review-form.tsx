@@ -11,7 +11,7 @@ import { EmailPreview } from "@/components/shared/email-preview";
 import { TemplateSelector } from "./template-selector";
 import { createSubmission } from "@/actions/submission.actions";
 import { renderEmail } from "@/domain/email/render";
-import { monthNameForPeriod, yearForPeriod, reviewPeriodForDate } from "@/domain/review/period";
+import { monthNameForPeriod, yearForPeriod, parseReviewPeriod } from "@/domain/review/period";
 import type { TemplateType } from "@prisma/client";
 import type { ScopeOrganization } from "@/components/hr/scope-filter";
 
@@ -30,12 +30,15 @@ export function ReviewForm({
   employees,
   organizations,
   submitterEmail,
+  periods,
 }: {
   employees: ReviewEmployee[];
   /** Only populated for Admins, who choose organization then department. */
   organizations: ScopeOrganization[];
   /** Shown in the preview's Cc line — the submitter is always copied. */
   submitterEmail: string;
+  /** Selectable review months, most recent first; the first is the default. */
+  periods: { value: string; label: string }[];
 }) {
   const [state, formAction, isPending] = useActionState(createSubmission, undefined);
   const isAdmin = organizations.length > 0;
@@ -54,6 +57,7 @@ export function ReviewForm({
   const [employeeId, setEmployeeId] = useState(visibleEmployees[0]?.id ?? "");
   const [templateType, setTemplateType] = useState<TemplateType | "">("");
   const [feedback, setFeedback] = useState("");
+  const [reviewPeriod, setReviewPeriod] = useState(periods[0]?.value ?? "");
 
   // Keep the cascade consistent when a parent choice changes, and clear the
   // form after a successful submit. Both derive from changing values, so
@@ -88,14 +92,16 @@ export function ReviewForm({
   // with, so what is previewed here is what actually goes out.
   const preview = useMemo(() => {
     if (!templateType) return { subject: "", html: "" };
-    const period = reviewPeriodForDate(new Date());
+    // Rendered against the month being reviewed, not today's — the email
+    // says "the monthly performance review for August".
+    const period = parseReviewPeriod(reviewPeriod) ?? new Date();
     return renderEmail(templateType, {
       employee_name: selectedEmployee?.name ?? "",
       month_name: monthNameForPeriod(period),
       year: String(yearForPeriod(period)),
       feedback: feedback.trim() || "…",
     });
-  }, [templateType, selectedEmployee, feedback]);
+  }, [templateType, selectedEmployee, feedback, reviewPeriod]);
 
   if (employees.length === 0) {
     return (
@@ -133,6 +139,23 @@ export function ReviewForm({
             </div>
           </div>
         )}
+
+        <div className="space-y-1.5">
+          <Label htmlFor="reviewPeriod">Review month</Label>
+          <Dropdown
+            id="reviewPeriod"
+            name="reviewPeriod"
+            value={reviewPeriod}
+            onChange={setReviewPeriod}
+            options={periods}
+          />
+          <p className="text-metadata">
+            The month this feedback is about — not the month you are writing it in.
+          </p>
+          {state && !state.success && state.fieldErrors?.reviewPeriod && (
+            <p className="text-sm text-destructive">{state.fieldErrors.reviewPeriod[0]}</p>
+          )}
+        </div>
 
         <div className="space-y-1.5">
           <Label htmlFor="employeeId">Employee</Label>
@@ -214,7 +237,7 @@ export function ReviewForm({
           </p>
         )}
 
-        <Button type="submit" size="lg" loading={isPending} disabled={!templateType || !employeeId || over}>
+        <Button type="submit" size="lg" loading={isPending} disabled={!templateType || !employeeId || !reviewPeriod || over}>
           Submit Feedback
         </Button>
       </form>

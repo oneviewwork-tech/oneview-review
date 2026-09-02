@@ -36,8 +36,15 @@ export async function getSidebarData(user: {
   role: UserRole;
   departmentId: string | null;
 }): Promise<SidebarData> {
-  const period = reviewPeriodForDate(new Date());
   const isHr = user.role === "HR" || user.role === "ADMIN";
+  // The cycle in play, not simply this month: on 1 September the work in
+  // hand is usually August's, and a card reading "September · 0%" would be
+  // technically true and completely unhelpful.
+  const latest = await prisma.feedbackSubmission.findFirst({
+    orderBy: { reviewPeriod: "desc" },
+    select: { reviewPeriod: true },
+  });
+  const period = latest?.reviewPeriod ?? reviewPeriodForDate(new Date());
 
   // A Department Head only ever sees their own department, here as
   // everywhere else.

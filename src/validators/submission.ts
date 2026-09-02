@@ -2,6 +2,9 @@ import { z } from "zod";
 
 export const createSubmissionSchema = z.object({
   employeeId: z.string().min(1, "Select an employee."),
+  // "YYYY-MM". Range and future-dating are checked in the domain, which
+  // needs to know what "now" is.
+  reviewPeriod: z.string().regex(/^\d{4}-\d{2}$/, "Select a review month."),
   templateType: z.enum(["A", "B", "C"], { message: "Select a template." }),
   feedback: z
     .string()

@@ -1,9 +1,15 @@
 import { Users, Mail } from "lucide-react";
 import { getOverview, getDepartmentProgress } from "@/services/review/dashboard";
 import { getScopeOrganizations, resolveScope } from "@/services/review/scope";
-import { formatReviewPeriod } from "@/domain/review/period";
+import {
+  formatReviewPeriod,
+  selectablePeriods,
+  formatPeriodValue,
+  parseReviewPeriod,
+} from "@/domain/review/period";
 import { PageHeader } from "@/components/shared/page-header";
 import { ScopeFilter } from "@/components/hr/scope-filter";
+import { PeriodFilter } from "@/components/hr/period-filter";
 import { ReviewPipeline } from "@/components/hr/review-pipeline";
 import { NextAction } from "@/components/hr/next-action";
 import { DepartmentProgressList } from "@/components/hr/department-progress";
@@ -13,15 +19,23 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default async function OverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ org?: string }>;
+  searchParams: Promise<{ org?: string; period?: string }>;
 }) {
   const params = await searchParams;
   const organizations = await getScopeOrganizations();
   const { organizationId } = resolveScope(organizations, params);
 
+  // Defaults to this month, but HR can look back — August's reviews are
+  // normally being processed during early September.
+  const periods = selectablePeriods(12).map((p) => ({
+    value: formatPeriodValue(p),
+    label: formatReviewPeriod(p),
+  }));
+  const period = (params.period ? parseReviewPeriod(params.period) : null) ?? undefined;
+
   const [counters, departments] = await Promise.all([
-    getOverview(undefined, organizationId),
-    getDepartmentProgress(undefined, organizationId),
+    getOverview(period, organizationId),
+    getDepartmentProgress(period, organizationId),
   ]);
 
   const scopeLabel = organizations.find((o) => o.id === organizationId)?.name ?? "All organizations";
@@ -35,7 +49,12 @@ export default async function OverviewPage({
         eyebrow={`${formatReviewPeriod(counters.period)} · ${scopeLabel}`}
         title="Performance Review"
         description="Collect feedback from Department Heads, confirm it, then send every confirmed email in one action."
-        actions={<ScopeFilter organizations={organizations} showDepartment={false} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <PeriodFilter periods={periods} />
+            <ScopeFilter organizations={organizations} showDepartment={false} />
+          </div>
+        }
       />
 
       {counters.totalEmployees === 0 ? (

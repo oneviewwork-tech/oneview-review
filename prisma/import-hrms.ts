@@ -127,12 +127,78 @@ interface ParsedEmployee {
   reportingManagerName: string | null;
   /** Manager exactly as written, including self-references. */
   rawManager: string | null;
+  /**
+   * Set only by the column-per-field layout, where the sheet is a grouping
+   * and the real department is a column on each row.
+   */
+  departmentName?: string | null;
+}
+
+/** Turns a department name HR typed into a stable code. */
+function departmentCode(name: string): string {
+  return (
+    name
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 24) || "DEPT"
+  );
+}
+
+/**
+ * Finds a header row of the form
+ *   SL. NO | NAME | DESIGNATION | DEPARTMENT | MAIL ID
+ * and returns the column indexes, or null when the sheet isn't laid out
+ * that way. The two workbooks in use disagree about this: one puts the
+ * department in the tab name, the other in a column.
+ */
+function findColumnLayout(ws: ExcelJS.Worksheet): {
+  headerRow: number;
+  name: number;
+  designation: number;
+  department: number;
+} | null {
+  for (let r = 1; r <= Math.min(ws.rowCount, 5); r++) {
+    const cells: string[] = [];
+    for (let c = 1; c <= Math.max(ws.columnCount, 5); c++) cells.push(cellText(ws.getRow(r).getCell(c).value).toLowerCase());
+    const department = cells.findIndex((v) => v === "department");
+    if (department === -1) continue;
+    // "SALES" uses its own name where the others say "NAME".
+    const name = cells.findIndex((v) => v === "name" || v === "sales" || v === "employee name");
+    const designation = cells.findIndex((v) => v === "designation");
+    if (name === -1) continue;
+    return { headerRow: r, name: name + 1, designation: designation + 1, department: department + 1 };
+  }
+  return null;
 }
 
 function parseSheet(ws: ExcelJS.Worksheet): ParsedEmployee[] {
   const key = ws.name.trim().toLowerCase();
   const dashStyle = NAME_DASH_DESIGNATION_SHEETS.has(key);
+  const columns = findColumnLayout(ws);
   const out: ParsedEmployee[] = [];
+
+  if (columns) {
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber <= columns.headerRow) return;
+      const name = cellText(row.getCell(columns.name).value);
+      if (!name) return;
+      const values: string[] = [];
+      for (let c = 1; c <= Math.max(ws.columnCount, 5); c++) values.push(cellText(row.getCell(c).value));
+      const designation = columns.designation > 0 ? cellText(row.getCell(columns.designation).value) : "";
+      out.push({
+        name,
+        email: findEmail(values),
+        // A few rows repeat the person's name into the designation
+        // ("Rithik -Workplace Operations Manager"); strip it back off.
+        designation: designation.replace(new RegExp(`^${name}\s*-\s*`, "i"), "").trim() || null,
+        reportingManagerName: null,
+        rawManager: null,
+        departmentName: cellText(row.getCell(columns.department).value) || null,
+      });
+    });
+    return out;
+  }
 
   ws.eachRow((row, rowNumber) => {
     const values: string[] = [];
@@ -202,13 +268,43 @@ async function main() {
   let updated = 0;
   let departments = 0;
 
+  // Flatten the workbook into department buckets first. Which sheet a row
+  // came from is only a grouping; what matters is the department it belongs
+  // to, and the two workbooks express that differently.
+  const buckets = new Map<string, { name: string; code: string; sheet: string; rows: ParsedEmployee[] }>();
+
   for (const ws of wb.worksheets) {
     const key = ws.name.trim().toLowerCase();
+    const rows = parseSheet(ws);
+    const usesDepartmentColumn = rows.some((r) => r.departmentName !== undefined);
+
+    if (usesDepartmentColumn) {
+      for (const row of rows) {
+        const deptName = row.departmentName?.trim();
+        if (!deptName) {
+          skipped.push({ sheet: ws.name, name: row.name, reason: "no department in the sheet" });
+          continue;
+        }
+        const code = departmentCode(deptName);
+        const bucket = buckets.get(code) ?? { name: deptName, code, sheet: ws.name, rows: [] };
+        bucket.rows.push(row);
+        buckets.set(code, bucket);
+      }
+      continue;
+    }
+
     const meta = DEPARTMENTS[key];
     if (!meta) {
       console.log(`- skipping unrecognised sheet "${ws.name}"`);
       continue;
     }
+    const bucket = buckets.get(meta.code) ?? { ...meta, sheet: ws.name, rows: [] };
+    bucket.rows.push(...rows);
+    buckets.set(meta.code, bucket);
+  }
+
+  for (const meta of [...buckets.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+    const ws = { name: meta.sheet };
 
     // Match on code *or* name: a department may already exist under an
     // older code (the demo seed used BRAND where HR's sheet means BRANDING),
@@ -230,7 +326,7 @@ async function main() {
         });
     departments++;
 
-    const rows = parseSheet(ws);
+    const rows = meta.rows;
     let sheetCreated = 0;
     let sheetUpdated = 0;
 

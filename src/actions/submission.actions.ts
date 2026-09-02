@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireReviewAccess, requireOwnsEmployee } from "@/lib/rbac";
 import { writeAuditEvent } from "@/lib/audit";
 import { createSubmissionSchema, reviseSubmissionSchema } from "@/validators/submission";
-import { reviewPeriodForDate } from "@/domain/review/period";
+import { parseReviewPeriod, formatReviewPeriod } from "@/domain/review/period";
 import { ok, fail, type ActionResult } from "@/lib/action-result";
 
 /**
@@ -25,6 +25,7 @@ export async function createSubmission(
 
   const parsed = createSubmissionSchema.safeParse({
     employeeId: formData.get("employeeId"),
+    reviewPeriod: formData.get("reviewPeriod"),
     templateType: formData.get("templateType"),
     feedback: formData.get("feedback"),
   });
@@ -45,14 +46,20 @@ export async function createSubmission(
   });
 
   const now = new Date();
-  const reviewPeriod = reviewPeriodForDate(now);
+  // The month being reviewed is chosen, not inferred from today: feedback
+  // for a month is normally written in the first days of the next one, so
+  // deriving it from the clock filed August's reviews under September.
+  const reviewPeriod = parseReviewPeriod(parsed.data.reviewPeriod, now);
+  if (!reviewPeriod) {
+    return fail("That review month is not valid.", { reviewPeriod: ["Pick a month that has already started."] });
+  }
 
   const existing = await prisma.feedbackSubmission.findUnique({
     where: { employeeId_reviewPeriod: { employeeId: employee.id, reviewPeriod } },
   });
   if (existing) {
     return fail(
-      `Feedback for ${employee.name} has already been submitted for this month.`
+      `Feedback for ${employee.name} has already been submitted for ${formatReviewPeriod(reviewPeriod)}.`
     );
   }
 
@@ -90,7 +97,10 @@ export async function createSubmission(
 
   revalidatePath("/review");
   revalidatePath("/my-submissions");
-  return ok({ id: submission.id }, `Feedback submitted for ${employee.name}.`);
+  return ok(
+    { id: submission.id },
+    `Feedback submitted for ${employee.name} — ${formatReviewPeriod(reviewPeriod)}.`
+  );
 }
 
 /**
