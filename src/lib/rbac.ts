@@ -98,15 +98,23 @@ export async function requireAdmin() {
 }
 
 /**
- * Throws unless a Team Lead owns the given employee (i.e. the
- * employee's departmentId matches theirs). This is the backend enforcement
- * the spec insists on (§8: "Do not rely only on frontend filtering") —
- * every submission-creating action must call this, not just filter the
- * dropdown that fed it.
+ * Throws unless a Team Lead owns the given employee — either as their
+ * home department, or as one of the employee's additional department
+ * links (EmployeeDepartmentLink; e.g. a department head who is also
+ * reviewed, as an individual, under a different department). This is the
+ * backend enforcement the spec insists on (§8: "Do not rely only on
+ * frontend filtering") — every submission-creating action must call this,
+ * not just filter the dropdown that fed it.
  */
 export async function requireOwnsEmployee(departmentId: string, employeeId: string) {
-  const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
-  if (!employee || employee.departmentId !== departmentId || !employee.isActive) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    include: { additionalDepartments: { select: { departmentId: true } } },
+  });
+  const owns =
+    employee?.departmentId === departmentId ||
+    employee?.additionalDepartments.some((l) => l.departmentId === departmentId);
+  if (!employee || !owns || !employee.isActive) {
     throw new ForbiddenError("You do not have access to this employee.");
   }
   return employee;

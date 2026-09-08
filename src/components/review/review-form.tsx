@@ -22,6 +22,8 @@ export interface ReviewEmployee {
   departmentId: string;
   organizationId: string;
   designation: string | null;
+  /** Departments this person is also reviewable under, beyond their home one. */
+  additionalDepartmentIds: string[];
 }
 
 const MAX_FEEDBACK = 4000;
@@ -51,7 +53,10 @@ export function ReviewForm({
   const [departmentId, setDepartmentId] = useState(departmentOptions[0]?.id ?? "");
 
   const visibleEmployees = useMemo(
-    () => (isAdmin ? employees.filter((e) => e.departmentId === departmentId) : employees),
+    () =>
+      isAdmin
+        ? employees.filter((e) => e.departmentId === departmentId || e.additionalDepartmentIds.includes(departmentId))
+        : employees,
     [isAdmin, employees, departmentId]
   );
   const [employeeId, setEmployeeId] = useState(visibleEmployees[0]?.id ?? "");
@@ -68,7 +73,7 @@ export function ReviewForm({
     setLastOrg(organizationId);
     const first = departmentOptions[0]?.id ?? "";
     setDepartmentId(first);
-    setEmployeeId(employees.find((e) => e.departmentId === first)?.id ?? "");
+    setEmployeeId(employees.find((e) => e.departmentId === first || e.additionalDepartmentIds.includes(first))?.id ?? "");
   }
 
   const [lastDept, setLastDept] = useState(departmentId);

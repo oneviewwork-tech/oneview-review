@@ -86,6 +86,9 @@ model Department {
   users       User[]
   employees   Employee[]
   submissions FeedbackSubmission[]
+  /// Employees who are reviewable here in addition to their home
+  /// department — see EmployeeDepartmentLink.
+  additionalMembers EmployeeDepartmentLink[]
 
   // Scoped per organization rather than globally: both entities can
   // legitimately run their own "Marketing" or "HR".
@@ -118,9 +121,32 @@ model Employee {
   updatedAt DateTime @updatedAt
 
   submissions FeedbackSubmission[]
+  /// Other departments this person is also reviewable under, on top of
+  /// their home department above — e.g. a department head whose own
+  /// performance is reviewed elsewhere. See EmployeeDepartmentLink.
+  additionalDepartments EmployeeDepartmentLink[]
 
   @@index([departmentId])
   @@index([organizationId])
+}
+
+/// A department a given employee is reviewable under in addition to their
+/// home department (Employee.departmentId). Kept as a join table rather
+/// than widening Employee to many departments: the home department stays
+/// the single source of truth everywhere else (dashboards, the org-chart
+/// column, the FeedbackSubmission snapshot) and only the Team Lead review
+/// dropdown / ownership check needs to see the union of the two.
+model EmployeeDepartmentLink {
+  id           String     @id @default(cuid())
+  employeeId   String
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([employeeId, departmentId])
+  @@index([departmentId])
 }
 
 // ── Feedback workflow ────────────────────────────────────────────────

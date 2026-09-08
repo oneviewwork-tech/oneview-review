@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dropdown } from "@/components/ui/dropdown";
 import { createEmployee, updateEmployee } from "@/actions/admin.actions";
+import { cn } from "@/lib/utils";
 import type { ScopeOrganization } from "@/components/hr/scope-filter";
 
 export interface EditableEmployee {
@@ -18,6 +19,8 @@ export interface EditableEmployee {
   departmentId: string;
   organizationId: string;
   designation: string | null;
+  /** Departments this person is also reviewable under, beyond the home one above. */
+  additionalDepartmentIds: string[];
 }
 
 /**
@@ -41,11 +44,17 @@ export function EmployeeDialog({
   const [organizationId, setOrganizationId] = useState(employee?.organizationId ?? organizations[0]?.id ?? "");
   const departmentOptions = organizations.find((o) => o.id === organizationId)?.departments ?? [];
   const [departmentId, setDepartmentId] = useState(employee?.departmentId ?? departmentOptions[0]?.id ?? "");
+  const [additionalDepartmentIds, setAdditionalDepartmentIds] = useState<string[]>(employee?.additionalDepartmentIds ?? []);
 
   const [lastOrg, setLastOrg] = useState(organizationId);
   if (organizationId !== lastOrg) {
     setLastOrg(organizationId);
     setDepartmentId(departmentOptions[0]?.id ?? "");
+    setAdditionalDepartmentIds([]);
+  }
+
+  function toggleAdditionalDepartment(id: string) {
+    setAdditionalDepartmentIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   const [handled, setHandled] = useState(state);
@@ -123,12 +132,52 @@ export function EmployeeDialog({
               id="emp-dept"
               name="departmentId"
               value={departmentId}
-              onChange={setDepartmentId}
+              onChange={(v) => {
+                setDepartmentId(v);
+                setAdditionalDepartmentIds((prev) => prev.filter((id) => id !== v));
+              }}
               placeholder={departmentOptions.length ? "Select a department" : "No departments in this organization"}
               options={departmentOptions.map((d) => ({ value: d.id, label: d.name }))}
             />
             {err("departmentId") && <p className="text-sm text-destructive">{err("departmentId")}</p>}
           </div>
+
+          {departmentOptions.length > 1 && (
+            <div className="space-y-1.5">
+              <Label>Also reviewable in</Label>
+              <p className="text-metadata">
+                For a department head whose own performance is reviewed elsewhere — e.g. under Academics. Their home
+                department above is unaffected.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {departmentOptions
+                  .filter((d) => d.id !== departmentId)
+                  .map((d) => {
+                    const selected = additionalDepartmentIds.includes(d.id);
+                    return (
+                      <label
+                        key={d.id}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-ui",
+                          selected ? "border-brand bg-brand-subtle text-brand" : "border-border text-muted-foreground hover:bg-accent"
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleAdditionalDepartment(d.id)}
+                          className="sr-only"
+                        />
+                        {d.name}
+                      </label>
+                    );
+                  })}
+              </div>
+              {additionalDepartmentIds.map((id) => (
+                <input key={id} type="hidden" name="additionalDepartmentIds" value={id} />
+              ))}
+            </div>
+          )}
 
           {state && !state.success && !state.fieldErrors && <p className="text-sm text-destructive">{state.message}</p>}
 

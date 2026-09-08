@@ -82,19 +82,29 @@ export async function getDepartmentProgress(
   organizationId?: string
 ): Promise<DepartmentProgress[]> {
   const scope = organizationId ? { organizationId } : {};
-  const [departments, employeeCounts, submissionCounts] = await Promise.all([
+  const [departments, employeeCounts, linkedCounts, submissionCounts] = await Promise.all([
     prisma.department.findMany({ where: scope, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     prisma.employee.groupBy({ by: ["departmentId"], where: { isActive: true, ...scope }, _count: { _all: true } }),
+    // Employees reviewable here only via an additional link (§
+    // EmployeeDepartmentLink), on top of their home department elsewhere —
+    // without this, a department's total would undercount who it actually
+    // needs to review.
+    prisma.employeeDepartmentLink.groupBy({
+      by: ["departmentId"],
+      where: { employee: { isActive: true }, department: scope },
+      _count: { _all: true },
+    }),
     prisma.feedbackSubmission.groupBy({ by: ["departmentId"], where: { reviewPeriod: period, ...scope }, _count: { _all: true } }),
   ]);
 
   const employeesBy = new Map(employeeCounts.map((r) => [r.departmentId, r._count._all]));
+  const linkedBy = new Map(linkedCounts.map((r) => [r.departmentId, r._count._all]));
   const submissionsBy = new Map(submissionCounts.map((r) => [r.departmentId, r._count._all]));
 
   return departments.map((d) => ({
     departmentId: d.id,
     departmentName: d.name,
     submitted: submissionsBy.get(d.id) ?? 0,
-    totalEmployees: employeesBy.get(d.id) ?? 0,
+    totalEmployees: (employeesBy.get(d.id) ?? 0) + (linkedBy.get(d.id) ?? 0),
   }));
 }

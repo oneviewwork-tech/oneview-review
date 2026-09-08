@@ -40,7 +40,11 @@ export default async function AdminEmployeesPage({
         ...search,
       },
       orderBy: [{ department: { name: "asc" } }, { name: "asc" }],
-      include: { department: { select: { name: true } }, organization: { select: { name: true } } },
+      include: {
+        department: { select: { name: true } },
+        organization: { select: { name: true } },
+        additionalDepartments: { select: { departmentId: true, department: { select: { name: true } } } },
+      },
     }),
     prisma.employee.count(),
   ]);
@@ -100,7 +104,12 @@ export default async function AdminEmployeesPage({
                     </td>
                     <td className="text-muted-foreground">{e.designation ?? "—"}</td>
                     {showOrgColumn && <td className="text-muted-foreground">{e.organization.name}</td>}
-                    <td className="text-muted-foreground">{e.department.name}</td>
+                    <td className="text-muted-foreground">
+                      {e.department.name}
+                      {e.additionalDepartments.length > 0 && (
+                        <span className="text-metadata"> + {e.additionalDepartments.map((l) => l.department.name).join(", ")}</span>
+                      )}
+                    </td>
                     <td>
                       <ActiveBadge active={e.isActive} />
                     </td>
@@ -115,6 +124,7 @@ export default async function AdminEmployeesPage({
                             departmentId: e.departmentId,
                             organizationId: e.organizationId,
                             designation: e.designation,
+                            additionalDepartmentIds: e.additionalDepartments.map((l) => l.departmentId),
                           }}
                         />
                         <ToggleActiveButton id={e.id} isActive={e.isActive} action={toggleEmployeeActive} />

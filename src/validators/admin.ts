@@ -17,6 +17,11 @@ export const createEmployeeSchema = z.object({
   email: z.string().trim().toLowerCase().email("Enter a valid email."),
   departmentId: z.string().min(1, "Select a department."),
   designation: z.string().trim().max(120).optional().or(z.literal("")),
+  // Other departments this person is also reviewable under, beyond their
+  // home one above (e.g. a department head whose own performance is
+  // reviewed elsewhere). Same-organization membership is enforced where
+  // this is consumed, not here.
+  additionalDepartmentIds: z.array(z.string()).default([]),
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.extend({

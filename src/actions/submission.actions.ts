@@ -40,8 +40,14 @@ export async function createSubmission(
   } else {
     employee = await requireOwnsEmployee(departmentId!, parsed.data.employeeId);
   }
+  // Attributed to the department the review actually happened under, which
+  // for a Team Lead reviewing through an additional link (§ EmployeeDepartmentLink)
+  // is their own department, not necessarily the employee's home one — that
+  // keeps this submission counted in the right department's progress. An
+  // Admin has no department of their own, so theirs still falls back to the
+  // employee's home department.
   const department = await prisma.department.findUniqueOrThrow({
-    where: { id: employee.departmentId },
+    where: { id: isAdmin ? employee.departmentId : departmentId! },
     include: { organization: { select: { id: true, name: true } } },
   });
 

@@ -50,6 +50,25 @@ export async function createDepartment(_prev: ActionResult | undefined, formData
   return ok(undefined, `Department "${dept.name}" created.`);
 }
 
+/**
+ * Narrows a requested list of additional-department ids down to ones that
+ * are actually safe to link: real departments, in the same organization as
+ * the employee's home department, and not the home department itself
+ * (that would just duplicate what departmentId already means).
+ */
+async function resolveAdditionalDepartmentIds(
+  requestedIds: string[],
+  organizationId: string,
+  homeDepartmentId: string
+): Promise<string[]> {
+  if (requestedIds.length === 0) return [];
+  const valid = await prisma.department.findMany({
+    where: { id: { in: requestedIds }, organizationId, NOT: { id: homeDepartmentId } },
+    select: { id: true },
+  });
+  return valid.map((d) => d.id);
+}
+
 export async function createEmployee(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
   const admin = await requireAdmin();
   const parsed = createEmployeeSchema.safeParse({
@@ -57,6 +76,7 @@ export async function createEmployee(_prev: ActionResult | undefined, formData: 
     email: formData.get("email"),
     departmentId: formData.get("departmentId"),
     designation: formData.get("designation"),
+    additionalDepartmentIds: formData.getAll("additionalDepartmentIds"),
   });
   if (!parsed.success) return fail("Please fix the highlighted fields.", parsed.error.flatten().fieldErrors);
 
@@ -68,6 +88,12 @@ export async function createEmployee(_prev: ActionResult | undefined, formData: 
   const department = await prisma.department.findUnique({ where: { id: parsed.data.departmentId } });
   if (!department) return fail("That department no longer exists.");
 
+  const additionalDepartmentIds = await resolveAdditionalDepartmentIds(
+    parsed.data.additionalDepartmentIds,
+    department.organizationId,
+    department.id
+  );
+
   const employee = await prisma.$transaction(async (tx) => {
     const created = await tx.employee.create({
       data: {
@@ -76,6 +102,7 @@ export async function createEmployee(_prev: ActionResult | undefined, formData: 
         departmentId: department.id,
         organizationId: department.organizationId,
         designation: parsed.data.designation || null,
+        additionalDepartments: { create: additionalDepartmentIds.map((departmentId) => ({ departmentId })) },
       },
     });
     await writeAuditEvent(tx, {
@@ -84,7 +111,7 @@ export async function createEmployee(_prev: ActionResult | undefined, formData: 
       action: "EMPLOYEE_CREATED",
       actorUserId: admin.id,
       actorEmail: admin.email,
-      after: parsed.data,
+      after: { ...parsed.data, additionalDepartmentIds },
     });
     return created;
   });
@@ -110,6 +137,7 @@ export async function updateEmployee(_prev: ActionResult | undefined, formData: 
     email: formData.get("email"),
     departmentId: formData.get("departmentId"),
     designation: formData.get("designation"),
+    additionalDepartmentIds: formData.getAll("additionalDepartmentIds"),
   });
   if (!parsed.success) return fail("Please fix the highlighted fields.", parsed.error.flatten().fieldErrors);
 
@@ -124,6 +152,12 @@ export async function updateEmployee(_prev: ActionResult | undefined, formData: 
   const department = await prisma.department.findUnique({ where: { id: parsed.data.departmentId } });
   if (!department) return fail("That department no longer exists.");
 
+  const additionalDepartmentIds = await resolveAdditionalDepartmentIds(
+    parsed.data.additionalDepartmentIds,
+    department.organizationId,
+    department.id
+  );
+
   await prisma.$transaction(async (tx) => {
     await tx.employee.update({
       where: { id: existing.id },
@@ -133,6 +167,13 @@ export async function updateEmployee(_prev: ActionResult | undefined, formData: 
         departmentId: department.id,
         organizationId: department.organizationId,
         designation: parsed.data.designation || null,
+        // Fully replaced rather than diffed — the incoming list is already
+        // the complete desired set, and there are never more than a
+        // handful of these per employee.
+        additionalDepartments: {
+          deleteMany: {},
+          create: additionalDepartmentIds.map((departmentId) => ({ departmentId })),
+        },
       },
     });
     await writeAuditEvent(tx, {
@@ -142,7 +183,7 @@ export async function updateEmployee(_prev: ActionResult | undefined, formData: 
       actorUserId: admin.id,
       actorEmail: admin.email,
       before: { name: existing.name, email: existing.email, departmentId: existing.departmentId },
-      after: { name: parsed.data.name, email: parsed.data.email, departmentId: department.id },
+      after: { name: parsed.data.name, email: parsed.data.email, departmentId: department.id, additionalDepartmentIds },
     });
   });
 

@@ -8,17 +8,35 @@ import { formatReviewPeriod, reviewPeriodForDate, selectablePeriods, formatPerio
 export default async function ReviewPage() {
   const { user, departmentId, isAdmin } = await requireReviewAccess();
 
-  // A Team Lead only ever sees their own department's employees. An
-  // Admin has no department, so they pick organization then department and
-  // the employee list follows — still re-validated server-side on submit.
-  const [employees, organizations] = await Promise.all([
+  // A Team Lead only ever sees their own department's employees, plus
+  // anyone additionally linked to it (a department head who is also
+  // reviewable, as an individual, under this department — see
+  // EmployeeDepartmentLink). An Admin has no department, so they pick
+  // organization then department and the employee list follows — still
+  // re-validated server-side on submit.
+  const [employeeRows, organizations] = await Promise.all([
     prisma.employee.findMany({
-      where: { isActive: true, ...(departmentId ? { departmentId } : {}) },
+      where: {
+        isActive: true,
+        ...(departmentId ? { OR: [{ departmentId }, { additionalDepartments: { some: { departmentId } } }] } : {}),
+      },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, email: true, departmentId: true, organizationId: true, designation: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        departmentId: true,
+        organizationId: true,
+        designation: true,
+        additionalDepartments: { select: { departmentId: true } },
+      },
     }),
     isAdmin ? getScopeOrganizations() : Promise.resolve([]),
   ]);
+  const employees = employeeRows.map((e) => ({
+    ...e,
+    additionalDepartmentIds: e.additionalDepartments.map((l) => l.departmentId),
+  }));
 
   // Offered rather than inferred: reviews for a month are normally written
   // in the first days of the next one.
