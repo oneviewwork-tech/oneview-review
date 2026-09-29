@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/rbac";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,10 @@ import { ROLE_LABEL } from "@/lib/roles";
 import { getScopeOrganizations } from "@/services/review/scope";
 
 export default async function AdminUsersPage() {
+  // The (admin) layout now also admits HR (for /admin/employees) — this
+  // page stays Admin-only, so it checks for itself.
+  await requireAdmin();
+
   const [users, organizations] = await Promise.all([
     prisma.user.findMany({
       orderBy: { name: "asc" },

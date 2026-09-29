@@ -1,10 +1,15 @@
 import { prisma } from "@/lib/prisma";
+import { requireAdmin } from "@/lib/rbac";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AddDepartmentDialog } from "@/components/admin/add-department-dialog";
 
 export default async function AdminDepartmentsPage() {
+  // The (admin) layout now also admits HR (for /admin/employees) — this
+  // page stays Admin-only, so it checks for itself.
+  await requireAdmin();
+
   const organizations = await prisma.organization.findMany({
     orderBy: { name: "asc" },
     include: {

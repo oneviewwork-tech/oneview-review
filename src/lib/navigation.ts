@@ -39,13 +39,18 @@ const HR_SECTION: NavSection = {
   ],
 };
 
+const EMPLOYEES_NAV_ITEM: NavItem = { href: "/admin/employees", label: "Employees", icon: "Users" };
+
 const ADMIN_SECTION: NavSection = {
   label: "Administration",
-  items: [
-    { href: "/admin/departments", label: "Departments", icon: "Building2" },
-    { href: "/admin/employees", label: "Employees", icon: "Users" },
-    { href: "/admin/users", label: "Users", icon: "UserCog" },
-  ],
+  items: [{ href: "/admin/departments", label: "Departments", icon: "Building2" }, EMPLOYEES_NAV_ITEM, { href: "/admin/users", label: "Users", icon: "UserCog" }],
+};
+
+// HR can maintain employee records (§26: HR already sees every employee)
+// but not departments or user accounts — those stay Admin-only.
+const HR_ADMIN_SECTION: NavSection = {
+  label: "Administration",
+  items: [EMPLOYEES_NAV_ITEM],
 };
 
 /**
@@ -66,7 +71,7 @@ export function navigationForRole(role: UserRole): NavSection[] {
     case "DEPARTMENT_HEAD":
       return [REVIEW_SECTION];
     case "HR":
-      return [HR_SECTION];
+      return [HR_SECTION, HR_ADMIN_SECTION];
     case "ADMIN":
       return [HR_SECTION, REVIEW_SECTION, ADMIN_SECTION];
   }

@@ -21,6 +21,11 @@ const ROLE_PREFIXES: { prefix: string; roles: UserRole[] }[] = [
   { prefix: "/overview", roles: ["HR", "ADMIN"] },
   { prefix: "/submissions", roles: ["HR", "ADMIN"] },
   { prefix: "/email-history", roles: ["HR", "ADMIN"] },
+  // More specific than /admin below, so it must come first — .find()
+  // takes the first match. Employee management is opened to HR (§26: HR
+  // can already see every employee; this lets them maintain that data
+  // too), Departments/Users stay Admin-only.
+  { prefix: "/admin/employees", roles: ["ADMIN", "HR"] },
   { prefix: "/admin", roles: ["ADMIN"] },
 ];
 

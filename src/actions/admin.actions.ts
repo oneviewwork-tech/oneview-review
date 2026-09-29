@@ -3,7 +3,7 @@
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/rbac";
+import { requireAdmin, requireHrAccess } from "@/lib/rbac";
 import { writeAuditEvent } from "@/lib/audit";
 import {
   createDepartmentSchema,
@@ -70,7 +70,7 @@ async function resolveAdditionalDepartmentIds(
 }
 
 export async function createEmployee(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const actor = await requireHrAccess();
   const parsed = createEmployeeSchema.safeParse({
     name: formData.get("name"),
     email: formData.get("email"),
@@ -109,8 +109,8 @@ export async function createEmployee(_prev: ActionResult | undefined, formData: 
       entityType: "Employee",
       entityId: created.id,
       action: "EMPLOYEE_CREATED",
-      actorUserId: admin.id,
-      actorEmail: admin.email,
+      actorUserId: actor.id,
+      actorEmail: actor.email,
       after: { ...parsed.data, additionalDepartmentIds },
     });
     return created;
@@ -130,7 +130,7 @@ export async function createEmployee(_prev: ActionResult | undefined, formData: 
  * not rewrite what was already sent last month.
  */
 export async function updateEmployee(_prev: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const actor = await requireHrAccess();
   const parsed = updateEmployeeSchema.safeParse({
     employeeId: formData.get("employeeId"),
     name: formData.get("name"),
@@ -180,8 +180,8 @@ export async function updateEmployee(_prev: ActionResult | undefined, formData: 
       entityType: "Employee",
       entityId: existing.id,
       action: "EMPLOYEE_UPDATED",
-      actorUserId: admin.id,
-      actorEmail: admin.email,
+      actorUserId: actor.id,
+      actorEmail: actor.email,
       before: { name: existing.name, email: existing.email, departmentId: existing.departmentId },
       after: { name: parsed.data.name, email: parsed.data.email, departmentId: department.id, additionalDepartmentIds },
     });
@@ -193,7 +193,7 @@ export async function updateEmployee(_prev: ActionResult | undefined, formData: 
 }
 
 export async function toggleEmployeeActive(employeeId: string): Promise<ActionResult> {
-  const admin = await requireAdmin();
+  const actor = await requireHrAccess();
   const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
   if (!employee) return fail("Employee not found.");
 
@@ -203,8 +203,8 @@ export async function toggleEmployeeActive(employeeId: string): Promise<ActionRe
       entityType: "Employee",
       entityId: employeeId,
       action: "EMPLOYEE_UPDATED",
-      actorUserId: admin.id,
-      actorEmail: admin.email,
+      actorUserId: actor.id,
+      actorEmail: actor.email,
       before: { isActive: employee.isActive },
       after: { isActive: !employee.isActive },
     });

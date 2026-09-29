@@ -1,12 +1,16 @@
-import { requireAdmin } from "@/lib/rbac";
+import { requireHrAccess } from "@/lib/rbac";
 import { AppShell } from "@/components/shared/app-shell";
 import { ROLE_LABEL } from "@/lib/roles";
 
+// Coarse gate only: HR or Admin. HR's one reason to be under /admin at all
+// is /admin/employees (see proxy.ts); Departments and Users re-check
+// requireAdmin() themselves, so this layout being permissive doesn't open
+// those up.
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const admin = await requireAdmin();
+  const user = await requireHrAccess();
 
   return (
-    <AppShell userId={admin.id} departmentId={admin.departmentId} role={admin.role} userName={admin.name} userMeta={ROLE_LABEL[admin.role]}>
+    <AppShell userId={user.id} departmentId={user.departmentId} role={user.role} userName={user.name} userMeta={ROLE_LABEL[user.role]}>
       {children}
     </AppShell>
   );
