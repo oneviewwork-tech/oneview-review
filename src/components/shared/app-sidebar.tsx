@@ -106,6 +106,7 @@ export function AppSidebarLayout({
   sections,
   userName,
   userMeta,
+  userPhoto,
   badges,
   signOut,
   switcher,
@@ -117,6 +118,8 @@ export function AppSidebarLayout({
   sections: NavSection[];
   userName: string;
   userMeta: string;
+  /** Their photo from ONEVIEW People, when they have one. */
+  userPhoto?: string;
   /** Outstanding work keyed by nav href; may stream in after the page. */
   badges: NavBadges | Promise<NavBadges>;
   signOut: () => Promise<void>;
@@ -244,7 +247,7 @@ export function AppSidebarLayout({
         aria-label="Main"
         // In the phone drawer, following a link closes it.
         onClick={onClose ? (e) => (e.target as HTMLElement).closest("a") && onClose() : undefined}
-        className={cn("mt-3 min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3", wide ? "px-3" : "px-2")}>
+        className={cn("mt-3 min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain pb-3", wide ? "px-3" : "px-2")}>
         {sections.map((s) => group(s, wide))}
       </nav>
 
@@ -252,7 +255,12 @@ export function AppSidebarLayout({
       <div className={cn("shrink-0 space-y-2 border-t border-border/70", wide ? "p-3" : "px-2 py-3")}>
         {switcher && wide && <div className="flex justify-center">{switcher}</div>}
         <div className={cn("flex items-center rounded-2xl bg-white/70 ring-1 ring-violet-500/10", wide ? "gap-2.5 p-2" : "mx-auto size-12 justify-center")} title={!wide ? `${userName} · ${userMeta}` : undefined}>
-          <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-bold text-ink-foreground">{initials}</span>
+          {userPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element -- our own authed thumbnail route
+            <img src={userPhoto} alt="" className="size-8 shrink-0 rounded-full object-cover ring-2 ring-white" />
+          ) : (
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink text-xs font-bold text-ink-foreground">{initials}</span>
+          )}
           {wide && (
             <span className="min-w-0 flex-1 leading-tight">
               <span className="block truncate text-sm font-semibold">{userName}</span>

@@ -43,6 +43,21 @@ export async function photoUrlFor(reviewEmployeeId: string): Promise<string | un
 const storageHeaders = (key: string): Record<string, string> =>
   key.startsWith("eyJ") ? { apikey: key, Authorization: `Bearer ${key}` } : { apikey: key };
 
+/**
+ * Storage may label photos `text/plain`, and our route sends nosniff, so the
+ * browser would refuse to show them: name the type from the file's own bytes.
+ */
+export function imageTypeOf(bytes: ArrayBuffer, given: string | null): string {
+  if (given?.startsWith("image/")) return given;
+  const b = new Uint8Array(bytes.slice(0, 12));
+  const ascii = (from: number, to: number) => String.fromCharCode(...b.slice(from, to));
+  if (ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "image/webp";
+  if (b[0] === 0xff && b[1] === 0xd8) return "image/jpeg";
+  if (b[0] === 0x89 && ascii(1, 4) === "PNG") return "image/png";
+  if (ascii(0, 3) === "GIF") return "image/gif";
+  return "application/octet-stream";
+}
+
 /** The photo's bytes: the thumbnail if there is one, else the original. */
 export async function fetchPeoplePhoto(key: string, size: "thumb" | "full"): Promise<{ body: ArrayBuffer; type: string } | null> {
   const base = process.env.SUPABASE_URL!.replace(/\/$/, "");
@@ -52,7 +67,8 @@ export async function fetchPeoplePhoto(key: string, size: "thumb" | "full"): Pro
       cache: "no-store",
     });
     if (!res.ok) return null;
-    return { body: await res.arrayBuffer(), type: res.headers.get("content-type") ?? "image/webp" };
+    const body = await res.arrayBuffer();
+    return { body, type: imageTypeOf(body, res.headers.get("content-type")) };
   };
   return (size === "thumb" ? await get(`${key}.thumb.webp`) : null) ?? (await get(key));
 }

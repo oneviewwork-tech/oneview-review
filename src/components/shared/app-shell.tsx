@@ -16,6 +16,7 @@ import { brandForOrgCode } from "@/components/shared/brand-logo";
 import { NotificationsBell } from "@/components/shared/notifications-bell";
 import { getMyNotifications, syncScoringReminders } from "@/services/notifications/in-app";
 import { syncPeopleIfStale } from "@/services/people/auto-sync";
+import { photoUrlFor } from "@/services/people/photo";
 
 /**
  * The bell. Before reading, it tops up this person's scoring reminders (one
@@ -84,17 +85,16 @@ export async function AppShell({
   const pinnedOrg = profile.organizationId
     ? (await prisma.organization.findUnique({ where: { id: profile.organizationId }, select: { code: true } }))?.code
     : null;
-  const ownOrg =
-    pinnedOrg ??
-    me?.department?.organization.code ??
-    (me
-      ? (
-          await prisma.employee.findFirst({
-            where: { OR: [{ email: { equals: me.email, mode: "insensitive" } }, { peopleEmail: { equals: me.email, mode: "insensitive" } }] },
-            select: { organization: { select: { code: true } } },
-          })
-        )?.organization.code
-      : null);
+  // Their own employee record: for the logo when they have no department, and for their photo.
+  const ownEmployee = me
+    ? await prisma.employee.findFirst({
+        where: { OR: [{ email: { equals: me.email, mode: "insensitive" } }, { peopleEmail: { equals: me.email, mode: "insensitive" } }] },
+        orderBy: { isActive: "desc" },
+        select: { id: true, organization: { select: { code: true } } },
+      })
+    : null;
+  const ownOrg = pinnedOrg ?? me?.department?.organization.code ?? ownEmployee?.organization.code ?? null;
+  const userPhoto = ownEmployee ? await photoUrlFor(ownEmployee.id).catch(() => undefined) : undefined;
   const brandProps = { homeBrand: brandForOrgCode(ownOrg), seesAllOrgs: profile.can("PERF_VIEW_ALL") && !profile.organizationId };
 
   return (
@@ -104,6 +104,7 @@ export async function AppShell({
           sections={sections}
           userName={userName}
           userMeta={userMeta}
+          userPhoto={userPhoto}
           badges={badges}
           signOut={signOutAction}
           switcher={<Switcher />}
