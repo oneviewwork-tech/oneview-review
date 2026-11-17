@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { CheckCircle2, Lock, ShieldCheck, ScrollText } from "lucide-react";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -14,14 +13,14 @@ export default async function LoginPage({
     <div className="grid min-h-screen lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
       {/* Brand panel. Hidden on small screens, where it would push the form
           below the fold on a phone. */}
-      <aside className="relative hidden overflow-hidden bg-[#0b2a6b] p-10 text-white lg:flex lg:flex-col lg:justify-between">
+      <aside className="relative hidden overflow-hidden bg-[#241556] p-10 text-white lg:flex lg:flex-col lg:justify-between">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(900px circle at 18% 12%, rgba(56,132,255,0.55), transparent 55%)," +
-              "radial-gradient(700px circle at 85% 78%, rgba(13,148,136,0.45), transparent 55%)",
+              "radial-gradient(900px circle at 18% 12%, rgba(139,109,255,0.6), transparent 55%)," +
+              "radial-gradient(700px circle at 85% 78%, rgba(244,114,182,0.4), transparent 55%)",
           }}
         />
 
@@ -51,15 +50,13 @@ export default async function LoginPage({
           <h1 className="text-[2.75rem] font-bold leading-[1.08] tracking-tight">
             Performance
             <br />
-            feedback,
+            and feedback,
             <br />
-            without the
-            <br />
-            inbox.
+            in one place.
           </h1>
           <p className="mt-5 max-w-sm text-[15px] leading-relaxed text-white/70">
-            Team Leads submit once. HR reviews, confirms, and sends every
-            email in a single action.
+            Score your team week by week, then collect, review and send
+            feedback, signed in with your ONEVIEW People account.
           </p>
         </div>
 
@@ -80,9 +77,6 @@ export default async function LoginPage({
       </aside>
 
       <main className="relative flex items-center justify-center bg-background px-4 py-12">
-        <div className="absolute right-4 top-4">
-          <ThemeToggle />
-        </div>
 
         <div className="w-full max-w-[400px] animate-fade-up">
           {/* Standing in for the brand panel on small screens. */}

@@ -1,87 +1,56 @@
+import { Prisma, type UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { reviewPeriodForDate } from "@/domain/review/period";
-import type { UserRole } from "@prisma/client";
 
 /** Counts keyed by the nav href they belong against. */
 export type NavBadges = Record<string, number>;
 
-export interface SidebarCycle {
-  period: Date;
-  /** Employees in scope for this person. */
-  total: number;
-  /** How many already have feedback this cycle. */
-  submitted: number;
-  /** Confirmed and waiting to go out — only meaningful for HR/Admin. */
-  readyToSend: number;
-  /** What the numbers cover: an organization-wide view, or one department. */
-  scopeLabel: string;
-}
-
-export interface SidebarData {
-  badges: NavBadges;
-  cycle: SidebarCycle;
-}
-
 /**
- * Everything the sidebar shows beyond the links themselves.
+ * The little numbers on the menu: work waiting on this person.
  *
- * Badges only appear when there is work, so on a quiet day they say
- * nothing — the cycle summary is the part that is always there, and it is
- * what stops the nav from being a bare list of destinations. Both are
- * gathered in one pass: this runs on every page render, and the database
- * is a region away, so the round trips matter more than the query cost.
+ * They only appear when there is something to do, so on a quiet day the menu
+ * says nothing. A number nobody can act on is noise, so each count is only
+ * ever shown to someone who can clear it:
+ *  - HR/Admin: feedback awaiting confirmation;
+ *  - a reviewer: performance submissions waiting for their decision (an Admin
+ *    can decide any, so sees all);
+ *  - a Team Lead: their own feedback and performance submissions sent back.
+ *
+ * This runs on every page and the database is a network hop away, so it is
+ * one statement: the "latest review cycle" lookup is a subquery rather than a
+ * round trip of its own. (Review's tables live in the `review` schema, named
+ * explicitly because raw SQL can't rely on the connection's search path
+ * behind a pooler.)
  */
-export async function getSidebarData(user: {
-  id: string;
-  role: UserRole;
-  departmentId: string | null;
-}): Promise<SidebarData> {
-  const isHr = user.role === "HR" || user.role === "ADMIN";
-  // The cycle in play, not simply this month: on 1 September the work in
-  // hand is usually August's, and a card reading "September · 0%" would be
-  // technically true and completely unhelpful.
-  const latest = await prisma.feedbackSubmission.findFirst({
-    orderBy: { reviewPeriod: "desc" },
-    select: { reviewPeriod: true },
-  });
-  const period = latest?.reviewPeriod ?? reviewPeriodForDate(new Date());
+export async function getNavBadges(user: { id: string; reviewsFeedback: boolean; decidesAny: boolean }): Promise<NavBadges> {
+  const isHr = user.reviewsFeedback;
+  const isAdmin = user.decidesAny;
 
-  // A Team Lead only ever sees their own department, here as
-  // everywhere else.
-  const scope = isHr ? {} : { departmentId: user.departmentId ?? "__none__" };
+  const awaiting = isHr
+    ? Prisma.sql`(SELECT count(*)::int FROM "review"."FeedbackSubmission"
+                  WHERE "status" = 'SUBMITTED'
+                    AND "reviewPeriod" = (SELECT max("reviewPeriod") FROM "review"."FeedbackSubmission"))`
+    : Prisma.sql`0`;
 
-  const [total, byStatus, needsRevision, department] = await Promise.all([
-    prisma.employee.count({ where: { isActive: true, ...scope } }),
-    prisma.feedbackSubmission.groupBy({
-      by: ["status"],
-      where: { reviewPeriod: period, ...scope },
-      _count: { _all: true },
-    }),
-    prisma.feedbackSubmission.count({
-      where: { status: "NEEDS_REVISION", departmentHeadId: user.id },
-    }),
-    user.departmentId
-      ? prisma.department.findUnique({ where: { id: user.departmentId }, select: { name: true } })
-      : Promise.resolve(null),
-  ]);
+  const mineToReview = isAdmin
+    ? Prisma.sql`"status" = 'SUBMITTED'`
+    : Prisma.sql`"status" = 'SUBMITTED' AND "reviewerUserId" = ${user.id}`;
 
-  const count = (status: string) => byStatus.find((r) => r.status === status)?._count._all ?? 0;
-  const submitted = byStatus.reduce((sum, r) => sum + r._count._all, 0);
+  const [row] = await prisma.$queryRaw<
+    { awaiting: number; revision: number; toReview: number; toFix: number }[]
+  >`
+    SELECT ${awaiting} AS awaiting,
+           (SELECT count(*)::int FROM "review"."FeedbackSubmission"
+            WHERE "status" = 'NEEDS_REVISION' AND "departmentHeadId" = ${user.id}) AS revision,
+           (SELECT count(*)::int FROM "review"."PerfReview" WHERE ${mineToReview}) AS "toReview",
+           (SELECT count(*)::int FROM "review"."PerfReview"
+            WHERE "status" = 'NEEDS_REVISION' AND "submittedById" = ${user.id}) AS "toFix"
+  `;
 
   const badges: NavBadges = {};
-  // Only ever count work this person can actually clear — a number nobody
-  // can act on is noise, not information.
-  if (isHr && count("SUBMITTED") > 0) badges["/submissions"] = count("SUBMITTED");
-  if (needsRevision > 0) badges["/my-submissions"] = needsRevision;
-
-  return {
-    badges,
-    cycle: {
-      period,
-      total,
-      submitted,
-      readyToSend: isHr ? count("CONFIRMED") : 0,
-      scopeLabel: isHr ? "Across all departments" : (department?.name ?? "Your department"),
-    },
-  };
+  if (!row) return badges;
+  if (row.awaiting > 0) badges["/submissions"] = row.awaiting;
+  if (row.revision > 0) badges["/my-submissions"] = row.revision;
+  if (row.toReview > 0) badges["/performance/reviews"] = row.toReview;
+  if (row.toFix > 0) badges["/performance/score"] = row.toFix;
+  return badges;
 }

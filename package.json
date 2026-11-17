@@ -13,7 +13,12 @@
     "postinstall": "prisma generate",
     "db:import": "tsx prisma/import-hrms.ts",
     "db:cleanup-demo": "tsx prisma/cleanup-demo.ts",
-    "db:reset-submissions": "tsx prisma/reset-submissions.ts"
+    "db:reset-submissions": "tsx prisma/reset-submissions.ts",
+    "db:seed-performance": "tsx prisma/seed-performance.ts",
+    "db:copy-from-neon": "tsx prisma/copy-from-neon.ts",
+    "db:sync-from-people": "tsx prisma/sync-from-people.ts",
+    "db:seed-scoring-tree": "tsx prisma/seed-scoring-tree.ts",
+    "db:sync-people": "tsx prisma/sync-people.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.8.0",

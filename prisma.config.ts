@@ -12,6 +12,10 @@ export default defineConfig({
   },
   engine: "classic",
   datasource: {
-    url: env("DATABASE_URL"),
+    // The CLI (migrate, db pull...) needs a direct connection: Prisma's
+    // migration lock hangs forever behind a transaction pooler such as
+    // Supabase's :6543 / pgbouncer. The running app still uses the pooled
+    // DATABASE_URL from schema.prisma; this file only affects the CLI.
+    url: env("DIRECT_URL"),
   },
 });

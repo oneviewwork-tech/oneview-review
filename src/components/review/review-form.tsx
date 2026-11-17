@@ -155,7 +155,7 @@ export function ReviewForm({
             options={periods}
           />
           <p className="text-metadata">
-            The month this feedback is about — not the month you are writing it in.
+            The month this feedback is about, not the month you are writing it in.
           </p>
           {state && !state.success && state.fieldErrors?.reviewPeriod && (
             <p className="text-sm text-destructive">{state.fieldErrors.reviewPeriod[0]}</p>
@@ -216,7 +216,7 @@ export function ReviewForm({
             required
           />
           <p className="text-metadata">
-            This is the only part that changes — everything else comes from the template. The employee receives it and
+            This is the only part that changes; everything else comes from the template. The employee receives it and
             you are copied in.
           </p>
           {state && !state.success && state.fieldErrors?.feedback && (

@@ -15,8 +15,8 @@ import bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 const ORGANIZATIONS = [
-  { id: "org_harisco", name: "Haris & Co.", code: "HARISCO" },
-  { id: "org_haca", name: "Haris & Co. Academy", code: "HACA" },
+  { id: "org_harisco", name: "Haris&Co.", code: "HARISCO" },
+  { id: "org_haca", name: "HACA", code: "HACA" },
 ];
 
 async function main() {

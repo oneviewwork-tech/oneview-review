@@ -9,24 +9,26 @@ import type { UserRole } from "@prisma/client";
 const { auth } = NextAuth(authConfig);
 
 // Backend enforcement of §6/§8/§26's role boundaries at the routing layer.
-// Real security still lives in requireReviewAccess()/requireHrAccess()/
-// requireAdmin() (src/lib/rbac.ts) — this just turns "wrong role" into a
+// Real security lives in the permission checks (requirePermission,
+// src/lib/rbac.ts) — this just turns "wrong role" into a
 // redirect to that role's own home instead of a thrown error page.
 //
 // ADMIN is a deliberate superset and is allowed everywhere, so it is
 // listed against every prefix rather than only /admin.
+// Screens that depend on a permission rather than a role (Feedback Review,
+// scorecard setup, Administration) are let through for every signed-in role:
+// roles are now named sets of permissions, so a custom role of any kind may
+// have them, and the page itself checks (requirePermission). Only the
+// feedback form keeps a role gate, as it is for Team Leads.
+const ALL_ROLES: UserRole[] = ["DEPARTMENT_HEAD", "HR", "ADMIN", "EMPLOYEE"];
 const ROLE_PREFIXES: { prefix: string; roles: UserRole[] }[] = [
-  { prefix: "/review", roles: ["DEPARTMENT_HEAD", "ADMIN"] },
-  { prefix: "/my-submissions", roles: ["DEPARTMENT_HEAD", "ADMIN"] },
-  { prefix: "/overview", roles: ["HR", "ADMIN"] },
-  { prefix: "/submissions", roles: ["HR", "ADMIN"] },
-  { prefix: "/email-history", roles: ["HR", "ADMIN"] },
-  // More specific than /admin below, so it must come first — .find()
-  // takes the first match. Employee management is opened to HR (§26: HR
-  // can already see every employee; this lets them maintain that data
-  // too), Departments/Users stay Admin-only.
-  { prefix: "/admin/employees", roles: ["ADMIN", "HR"] },
-  { prefix: "/admin", roles: ["ADMIN"] },
+  { prefix: "/review", roles: ALL_ROLES },
+  { prefix: "/my-submissions", roles: ALL_ROLES },
+  { prefix: "/overview", roles: ALL_ROLES },
+  { prefix: "/submissions", roles: ALL_ROLES },
+  { prefix: "/email-history", roles: ALL_ROLES },
+  { prefix: "/performance", roles: ALL_ROLES },
+  { prefix: "/admin", roles: ALL_ROLES },
 ];
 
 /**
@@ -128,6 +130,8 @@ export const config = {
     "/submissions/:path*",
     "/email-history",
     "/email-history/:path*",
+    "/performance",
+    "/performance/:path*",
     "/admin",
     "/admin/:path*",
   ],

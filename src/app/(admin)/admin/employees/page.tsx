@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Avatar } from "@/components/shared/avatar";
 import { ActiveBadge } from "@/components/shared/status-badge";
 import { SearchField } from "@/components/shared/search-field";
+import { SyncPeopleButton } from "@/components/admin/sync-people-button";
 import { EmployeeDialog } from "@/components/admin/employee-dialog";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
 import { ScopeFilter } from "@/components/hr/scope-filter";
@@ -32,7 +33,8 @@ export default async function AdminEmployeesPage({
       }
     : {};
 
-  const [employees, total] = await Promise.all([
+  const [lastSync, employees, total] = await Promise.all([
+    prisma.auditEvent.findFirst({ where: { action: "PEOPLE_SYNCED" }, orderBy: { createdAt: "desc" }, select: { createdAt: true } }),
     prisma.employee.findMany({
       where: {
         ...(scope.organizationId ? { organizationId: scope.organizationId } : {}),
@@ -60,9 +62,14 @@ export default async function AdminEmployeesPage({
         description={
           q || scope.organizationId || scope.departmentId
             ? `${employees.length} of ${total} shown`
-            : `${total} people a Team Lead can submit feedback for.`
+            : `${total} people, kept in step with ONEVIEW People. ${lastSync ? `Last synced ${lastSync.createdAt.toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" })}.` : "Not synced yet."}`
         }
-        actions={<EmployeeDialog organizations={organizations} />}
+        actions={
+          <>
+            <SyncPeopleButton />
+            <EmployeeDialog organizations={organizations} />
+          </>
+        }
       />
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -102,7 +109,7 @@ export default async function AdminEmployeesPage({
                         </div>
                       </div>
                     </td>
-                    <td className="text-muted-foreground">{e.designation ?? "—"}</td>
+                    <td className="text-muted-foreground">{e.designation ?? "-"}</td>
                     {showOrgColumn && <td className="text-muted-foreground">{e.organization.name}</td>}
                     <td className="text-muted-foreground">
                       {e.department.name}

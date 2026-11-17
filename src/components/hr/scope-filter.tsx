@@ -45,11 +45,11 @@ export function ScopeFilter({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1.5">
+    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+      <div className="flex w-full items-center gap-1.5 sm:w-auto">
         <Building2 className="h-4 w-4 text-muted-foreground" />
         <Dropdown
-          className="w-52"
+          className="w-full sm:w-52"
           value={org}
           // Department is dropped rather than kept: it would otherwise point
           // into an organization that is no longer selected.
@@ -62,10 +62,10 @@ export function ScopeFilter({
       </div>
 
       {showDepartment && (
-        <div className="flex items-center gap-1.5">
+        <div className="flex w-full items-center gap-1.5 sm:w-auto">
           <Layers className="h-4 w-4 text-muted-foreground" />
           <Dropdown
-            className="w-52"
+            className="w-full sm:w-52"
             value={department}
             onChange={(value) => push({ department: value })}
             placeholder="All Departments"

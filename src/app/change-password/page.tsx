@@ -1,38 +1,45 @@
+import Link from "next/link";
 import { KeyRound } from "lucide-react";
 import { requireUser } from "@/lib/rbac";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
-import { ChangePasswordForm } from "./change-password-form";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { homePathForRole } from "@/lib/roles";
 
+// Passwords are ONEVIEW People's: this app signs people in with their People
+// email and password and stores none of its own, so there is nothing to
+// change here. The page remains so old links and the header key icon land
+// somewhere that explains it. PEOPLE_APP_URL is optional and only adds a link.
 export default async function ChangePasswordPage() {
   const user = await requireUser();
+  const peopleUrl = process.env.PEOPLE_APP_URL;
 
   return (
     <div className="relative flex flex-1 items-center justify-center px-4 py-12">
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
-      </div>
       <div className="w-full max-w-sm animate-fade-up">
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand">
             <KeyRound className="h-5 w-5 text-brand-foreground" />
           </div>
-          <h1 className="text-page-title">
-            {user.mustChangePassword ? "Set a new password" : "Change password"}
-          </h1>
-          <p className="text-page-subtitle mt-1">
-            {user.mustChangePassword
-              ? "Choose your own password before continuing."
-              : "Update the password you use to sign in."}
-          </p>
+          <h1 className="text-page-title">Change password</h1>
+          <p className="text-page-subtitle mt-1">Your password is managed in ONEVIEW People.</p>
         </div>
         <Card>
           <CardHeader>
-            <CardTitle>Password</CardTitle>
-            <CardDescription>Use at least 8 characters.</CardDescription>
+            <CardTitle>One account, two apps</CardTitle>
+            <CardDescription>
+              You sign in here with the same email and password as ONEVIEW People. Change it there and it applies here
+              too.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <ChangePasswordForm />
+          <CardContent className="flex flex-col gap-2">
+            {peopleUrl && (
+              <a href={peopleUrl} target="_blank" rel="noreferrer" className={buttonVariants()}>
+                Open ONEVIEW People
+              </a>
+            )}
+            <Link href={homePathForRole(user.role)} className={buttonVariants({ variant: "outline" })}>
+              Back to ONEVIEW Review
+            </Link>
           </CardContent>
         </Card>
       </div>

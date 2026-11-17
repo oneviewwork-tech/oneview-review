@@ -28,31 +28,46 @@ export const updateEmployeeSchema = createEmployeeSchema.extend({
   employeeId: z.string().min(1),
 });
 
-export const createUserSchema = z
-  .object({
-    name: z.string().trim().min(2, "Name is required.").max(120),
-    email: z.string().trim().toLowerCase().email("Enter a valid email."),
-    role: z.enum(["DEPARTMENT_HEAD", "HR", "ADMIN"], { message: "Select a role." }),
-    departmentId: z.string().optional(),
-    password: z.string().min(8, "Password must be at least 8 characters."),
-  })
-  .refine((data) => data.role !== "DEPARTMENT_HEAD" || !!data.departmentId, {
-    message: "Select a department for a Team Lead.",
-    path: ["departmentId"],
-  });
+// A user is given a role (a ReviewRole row). A Team Lead-type role also needs
+// the department they submit feedback for.
+export const createUserSchema = z.object({
+  name: z.string().trim().min(2, "Name is required.").max(120),
+  email: z.string().trim().toLowerCase().email("Enter a valid email."),
+  roleId: z.string().min(1, "Select a role."),
+  departmentId: z.string().optional(),
+});
 
-// Password is optional here — blank means "leave it as is". Only a
-// non-empty value resets it (and forces a change at next login).
-export const updateUserSchema = z
-  .object({
-    userId: z.string().min(1),
-    name: z.string().trim().min(2, "Name is required.").max(120),
-    email: z.string().trim().toLowerCase().email("Enter a valid email."),
-    role: z.enum(["DEPARTMENT_HEAD", "HR", "ADMIN"], { message: "Select a role." }),
-    departmentId: z.string().optional(),
-    password: z.string().trim().min(8, "Password must be at least 8 characters.").optional().or(z.literal("")),
-  })
-  .refine((data) => data.role !== "DEPARTMENT_HEAD" || !!data.departmentId, {
-    message: "Select a department for a Team Lead.",
-    path: ["departmentId"],
-  });
+// No password: credentials live in ONEVIEW People, so this only sets the
+// Review role and department scope.
+export const updateUserSchema = z.object({
+  userId: z.string().min(1),
+  name: z.string().trim().min(2, "Name is required.").max(120),
+  email: z.string().trim().toLowerCase().email("Enter a valid email."),
+  roleId: z.string().min(1, "Select a role."),
+  departmentId: z.string().optional(),
+});
+
+const PERMISSION_KEYS = [
+  "PERF_VIEW_ALL",
+  "PERF_SCORE_ANY",
+  "PERF_DECIDE_ANY",
+  "PERF_SETUP",
+  "PERF_GRADE_SETTINGS",
+  "PERF_SEND_REMINDERS",
+  "FEEDBACK_SUBMIT_ANY",
+  "FEEDBACK_REVIEW",
+  "FEEDBACK_SEND",
+  "EMPLOYEES_MANAGE",
+  "USERS_MANAGE",
+  "ROLES_MANAGE",
+  "DEPARTMENTS_MANAGE",
+] as const;
+
+export const roleSchema = z.object({
+  roleId: z.string().optional(),
+  name: z.string().trim().min(2, "Give the role a name.").max(60),
+  description: z.string().trim().max(240).optional(),
+  baseRole: z.enum(["DEPARTMENT_HEAD", "HR", "ADMIN", "EMPLOYEE"], { message: "Choose what kind of account this is." }),
+  permissions: z.array(z.enum(PERMISSION_KEYS)).default([]),
+  homeOrganizationId: z.string().optional(),
+});

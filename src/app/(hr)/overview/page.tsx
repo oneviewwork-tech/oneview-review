@@ -23,7 +23,7 @@ export default async function OverviewPage({
 }) {
   const params = await searchParams;
   const organizations = await getScopeOrganizations();
-  const { organizationId } = resolveScope(organizations, params);
+  const scope = resolveScope(organizations, params);
 
   // Defaults to this month, but HR can look back — August's reviews are
   // normally being processed during early September.
@@ -34,12 +34,19 @@ export default async function OverviewPage({
   const period = (params.period ? parseReviewPeriod(params.period) : null) ?? undefined;
 
   const [counters, departments] = await Promise.all([
-    getOverview(period, organizationId),
-    getDepartmentProgress(period, organizationId),
+    getOverview(period, scope),
+    getDepartmentProgress(period, scope),
   ]);
 
-  const scopeLabel = organizations.find((o) => o.id === organizationId)?.name ?? "All organizations";
-  const orgQuery = organizationId ? `?org=${organizationId}` : "";
+  const orgName = organizations.find((o) => o.id === scope.organizationId)?.name;
+  const deptName = organizations.flatMap((o) => o.departments).find((d) => d.id === scope.departmentId)?.name;
+  const scopeLabel = [orgName ?? "All organizations", deptName].filter(Boolean).join(" · ");
+  // Carried onto the links below, so "see these" lands on the same slice.
+  const scopeQuery = new URLSearchParams({
+    ...(scope.organizationId ? { org: scope.organizationId } : {}),
+    ...(scope.departmentId ? { department: scope.departmentId } : {}),
+  }).toString();
+  const orgQuery = scopeQuery ? `?${scopeQuery}` : "";
   const completion =
     counters.totalEmployees === 0 ? 0 : Math.round((counters.submitted / counters.totalEmployees) * 100);
 
@@ -52,7 +59,7 @@ export default async function OverviewPage({
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <PeriodFilter periods={periods} />
-            <ScopeFilter organizations={organizations} showDepartment={false} />
+            <ScopeFilter organizations={organizations} />
           </div>
         }
       />
@@ -110,7 +117,7 @@ export default async function OverviewPage({
 
                 {counters.needsRevision > 0 && (
                   <p className="rounded-lg border border-destructive/20 bg-destructive-subtle px-3 py-2 text-sm text-destructive">
-                    {counters.needsRevision} sent back for revision — waiting on the Team Lead.
+                    {counters.needsRevision} sent back for revision, waiting on the Team Lead.
                   </p>
                 )}
               </CardContent>

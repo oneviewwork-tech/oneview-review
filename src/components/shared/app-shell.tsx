@@ -1,67 +1,113 @@
-import Link from "next/link";
-import { KeyRound } from "lucide-react";
-import { AppSidebar } from "@/components/shared/app-sidebar";
-import { Breadcrumb } from "@/components/shared/breadcrumb";
-import { ThemeToggle } from "@/components/shared/theme-toggle";
+import { Suspense } from "react";
+import { after } from "next/server";
+import { AppTopNav } from "@/components/shared/app-top-nav";
 import { ToastProvider } from "@/components/ui/toast";
 import { signOutAction } from "@/actions/auth.actions";
 import { navigationForRole } from "@/lib/navigation";
-import { getSidebarData } from "@/services/review/sidebar";
+import { getNavBadges } from "@/services/review/sidebar";
 import type { UserRole } from "@prisma/client";
+import { auth } from "@/lib/auth";
+import { getAccessProfile } from "@/lib/rbac";
+import { prisma } from "@/lib/prisma";
+import { ROLE_LABEL } from "@/lib/roles";
+import { accountSwitcherEnabled } from "@/lib/account-switcher";
+import { AccountSwitcher } from "@/components/shared/account-switcher";
+import { brandForOrgCode } from "@/components/shared/brand-logo";
+import { NotificationsBell } from "@/components/shared/notifications-bell";
+import { getMyNotifications, syncScoringReminders } from "@/services/notifications/in-app";
+import { syncPeopleIfStale } from "@/services/people/auto-sync";
+
+/**
+ * The bell. Before reading, it tops up this person's scoring reminders (one
+ * per unscored finished week), so reminders appear without a scheduled job.
+ */
+async function Bell({ userId }: { userId: string }) {
+  await syncScoringReminders(userId).catch(() => {});
+  const { items, unread } = await getMyNotifications(userId);
+  return <NotificationsBell items={items} unread={unread} />;
+}
+
+/** Test-only switcher: every active account, when enabled; otherwise nothing. */
+async function Switcher() {
+  if (!accountSwitcherEnabled()) return null;
+  const [session, users] = await Promise.all([
+    auth(),
+    prisma.user.findMany({ where: { isActive: true }, select: { email: true, name: true, role: true }, orderBy: [{ role: "asc" }, { name: "asc" }] }),
+  ]);
+  return (
+    <AccountSwitcher
+      currentEmail={session?.user?.email ?? ""}
+      accounts={users.map((u) => ({ email: u.email, name: u.name, roleLabel: ROLE_LABEL[u.role] }))}
+    />
+  );
+}
 
 /**
  * The single application shell. Every role renders through this, so the
- * product reads as one app with one sidebar rather than three separate
- * header layouts — only the nav contents differ, by role.
+ * product reads as one app — Performance and Feedback together — with one
+ * menu; only its contents differ, by role.
  *
- * The sidebar-plus-top-bar arrangement mirrors ONEVIEW People, so the two
- * products in the family behave the same way.
+ * Everything sits on one rounded canvas with a thin frame around it, with
+ * the pill menu floating across the top.
+ *
+ * The menu's counts come from the database, which is a network hop away, so
+ * they are not awaited: the menu paints at once without them and the numbers
+ * stream in when the query returns. Nothing on the page waits on them.
  */
 export async function AppShell({
   userId,
-  departmentId,
   role,
   userName,
   userMeta,
+  employeeOnly,
   children,
 }: {
   userId: string;
-  departmentId: string | null;
+  departmentId?: string | null;
   role: UserRole;
   userName: string;
   userMeta: string;
+  /** An employee who scores nobody: the menu shrinks to their own scorecard. */
+  employeeOnly?: boolean;
   children: React.ReactNode;
 }) {
-  const { badges, cycle } = await getSidebarData({ id: userId, role, departmentId });
+  const profile = await getAccessProfile();
+  // Keep employees in step with ONEVIEW People (joiners, leavers), after the page is sent.
+  after(syncPeopleIfStale);
+  const sections = navigationForRole(role, { employeeOnly, can: profile.can });
+  const badges = getNavBadges({ id: userId, reviewsFeedback: profile.can("FEEDBACK_REVIEW"), decidesAny: profile.can("PERF_DECIDE_ANY") }).catch(() => ({}));
+  // The person's own organization, for the logo: their department's, or their employee record's.
+  const me = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true, department: { select: { organization: { select: { code: true } } } } },
+  });
+  const pinnedOrg = profile.organizationId
+    ? (await prisma.organization.findUnique({ where: { id: profile.organizationId }, select: { code: true } }))?.code
+    : null;
+  const ownOrg =
+    pinnedOrg ??
+    me?.department?.organization.code ??
+    (me
+      ? (
+          await prisma.employee.findFirst({
+            where: { OR: [{ email: { equals: me.email, mode: "insensitive" } }, { peopleEmail: { equals: me.email, mode: "insensitive" } }] },
+            select: { organization: { select: { code: true } } },
+          })
+        )?.organization.code
+      : null);
+  const brandProps = { homeBrand: brandForOrgCode(ownOrg), seesAllOrgs: profile.can("PERF_VIEW_ALL") && !profile.organizationId };
 
   return (
     <ToastProvider>
-      <div className="flex min-h-full flex-1">
-        <AppSidebar
-          sections={navigationForRole(role)}
-          userName={userName}
-          userMeta={userMeta}
-          badges={badges}
-          cycle={cycle}
-          signOut={signOutAction}
-        />
-
-        <div className="flex min-w-0 flex-1 flex-col pl-[var(--sidebar-w)]">
-          <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center gap-3 border-b border-border bg-card px-6">
-            <Breadcrumb />
-            <div className="flex-1" />
-            <ThemeToggle />
-            <Link
-              href="/change-password"
-              aria-label="Change password"
-              title="Change password"
-              className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-ui hover:bg-accent hover:text-foreground"
-            >
-              <KeyRound className="size-4" />
-            </Link>
-          </header>
-
-          <main className="mx-auto w-full min-w-0 max-w-5xl flex-1 px-6 py-8">{children}</main>
+      <div className="min-h-full flex-1 sm:p-2">
+        {/* A thin frame around the rounded canvas; edge to edge on phones. */}
+        <div className="app-canvas mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col px-4 py-4 sm:min-h-[calc(100dvh-1rem)] sm:rounded-[1.5rem] sm:px-6 sm:py-5">
+          <Suspense
+            fallback={<AppTopNav {...brandProps} sections={sections} userName={userName} userMeta={userMeta} badges={{}} signOut={signOutAction} switcher={<Switcher />} />}
+          >
+            <AppTopNav {...brandProps} sections={sections} userName={userName} userMeta={userMeta} badges={badges} signOut={signOutAction} switcher={<Switcher />} bell={<Suspense fallback={null}><Bell userId={userId} /></Suspense>} />
+          </Suspense>
+          <main className="mt-6 w-full min-w-0 flex-1 sm:mt-8">{children}</main>
         </div>
       </div>
     </ToastProvider>

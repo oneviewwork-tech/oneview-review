@@ -3,11 +3,25 @@ import { prisma } from "@/lib/prisma";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/shared/page-header";
+import { ScopeFilter } from "@/components/hr/scope-filter";
 import { formatReviewPeriod } from "@/domain/review/period";
+import { getScopeOrganizations, resolveScope } from "@/services/review/scope";
 
-export default async function EmailHistoryPage() {
+export default async function EmailHistoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ org?: string; department?: string }>;
+}) {
+  const params = await searchParams;
+  const organizations = await getScopeOrganizations();
+  const scope = resolveScope(organizations, params);
+
   const sent = await prisma.feedbackSubmission.findMany({
-    where: { status: "SENT" },
+    where: {
+      status: "SENT",
+      ...(scope.organizationId ? { organizationId: scope.organizationId } : {}),
+      ...(scope.departmentId ? { departmentId: scope.departmentId } : {}),
+    },
     orderBy: { sentAt: "desc" },
   });
 
@@ -16,6 +30,7 @@ export default async function EmailHistoryPage() {
       <PageHeader
         title="Email History"
         description="Every performance review email that has been delivered, with its provider message ID."
+        actions={<ScopeFilter organizations={organizations} />}
       />
 
       {sent.length === 0 ? (

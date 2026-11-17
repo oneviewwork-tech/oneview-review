@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireHrAccess } from "@/lib/rbac";
+import { requirePermission } from "@/lib/rbac";
 import { writeAuditEvent } from "@/lib/audit";
 import { renderEmail } from "@/domain/email/render";
 import { monthNameForPeriod, yearForPeriod } from "@/domain/review/period";
@@ -11,10 +11,11 @@ import { ok, fail, type ActionResult } from "@/lib/action-result";
 
 /** HR reviews and confirms a submission (§19). Eligible for "Send All Confirmed" once confirmed. */
 export async function confirmSubmission(submissionId: string): Promise<ActionResult> {
-  const user = await requireHrAccess();
+  const { user, organizationId: pinnedOrg } = await requirePermission("FEEDBACK_REVIEW");
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id: submissionId } });
-  if (!submission) return fail("Submission not found.");
+  // A role limited to one organization can't touch another's submissions.
+  if (!submission || (pinnedOrg && submission.organizationId !== pinnedOrg)) return fail("Submission not found.");
   if (submission.status !== "SUBMITTED") {
     return fail(`Only submitted feedback can be confirmed (current status: ${submission.status}).`);
   }
@@ -46,12 +47,13 @@ export async function confirmSubmission(submissionId: string): Promise<ActionRes
  * auto-flags a submission for revision.
  */
 export async function requestRevision(submissionId: string, note: string): Promise<ActionResult> {
-  const user = await requireHrAccess();
+  const { user, organizationId: pinnedOrg } = await requirePermission("FEEDBACK_REVIEW");
   const trimmed = note.trim();
   if (trimmed.length < 5) return fail("Add a short note explaining what needs to change.");
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id: submissionId } });
-  if (!submission) return fail("Submission not found.");
+  // A role limited to one organization can't touch another's submissions.
+  if (!submission || (pinnedOrg && submission.organizationId !== pinnedOrg)) return fail("Submission not found.");
   if (submission.status !== "SUBMITTED") {
     return fail(`Only submitted feedback can be sent back for revision (current status: ${submission.status}).`);
   }
@@ -155,12 +157,13 @@ export async function sendAllConfirmed(scope?: {
   organizationId?: string;
   departmentId?: string;
 }): Promise<ActionResult<{ sent: number; failed: number }>> {
-  const user = await requireHrAccess();
+  const { user, organizationId: pinnedOrg } = await requirePermission("FEEDBACK_SEND");
 
   const confirmed = await prisma.feedbackSubmission.findMany({
     where: {
       status: "CONFIRMED",
-      ...(scope?.organizationId ? { organizationId: scope.organizationId } : {}),
+      // A role limited to one organization only ever sends its own.
+      ...(pinnedOrg ? { organizationId: pinnedOrg } : scope?.organizationId ? { organizationId: scope.organizationId } : {}),
       ...(scope?.departmentId ? { departmentId: scope.departmentId } : {}),
     },
   });
@@ -185,10 +188,11 @@ export async function sendAllConfirmed(scope?: {
 
 /** Explicit re-send for an already-SENT submission (§23) — never implicit. */
 export async function resendSubmission(submissionId: string): Promise<ActionResult> {
-  const user = await requireHrAccess();
+  const { user, organizationId: pinnedOrg } = await requirePermission("FEEDBACK_SEND");
 
   const submission = await prisma.feedbackSubmission.findUnique({ where: { id: submissionId } });
-  if (!submission) return fail("Submission not found.");
+  // A role limited to one organization can't touch another's submissions.
+  if (!submission || (pinnedOrg && submission.organizationId !== pinnedOrg)) return fail("Submission not found.");
   if (submission.status !== "SENT") {
     return fail("Only already-sent emails can be resent.");
   }

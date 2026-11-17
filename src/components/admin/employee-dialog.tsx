@@ -146,7 +146,7 @@ export function EmployeeDialog({
             <div className="space-y-1.5">
               <Label>Also reviewable in</Label>
               <p className="text-metadata">
-                For a department head whose own performance is reviewed elsewhere — e.g. under Academics. Their home
+                For a department head whose own performance is reviewed elsewhere, e.g. under Academics. Their home
                 department above is unaffected.
               </p>
               <div className="flex flex-wrap gap-1.5">

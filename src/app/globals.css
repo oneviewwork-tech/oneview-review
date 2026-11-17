@@ -13,6 +13,10 @@
   --color-brand-hover: var(--brand-hover);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-subtle: var(--brand-subtle);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-chart-pink: var(--chart-pink);
+  --color-chart-blue: var(--chart-blue);
   --color-success: var(--success);
   --color-success-subtle: var(--success-subtle);
   --color-warning: var(--warning);
@@ -46,44 +50,49 @@
   --radius-md: calc(var(--radius) * 0.75);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.04);
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05), 0 1px 3px 0 rgb(0 0 0 / 0.06);
-  --shadow-md: 0 2px 4px -1px rgb(0 0 0 / 0.06), 0 4px 8px -2px rgb(0 0 0 / 0.08);
-  --shadow-lg: 0 4px 8px -2px rgb(0 0 0 / 0.07), 0 12px 24px -6px rgb(0 0 0 / 0.12);
+  --shadow-xs: 0 1px 2px 0 rgb(60 40 160 / 0.05);
+  --shadow-sm: 0 1px 2px 0 rgb(60 40 160 / 0.05), 0 4px 14px -4px rgb(60 40 160 / 0.08);
+  --shadow-md: 0 2px 4px -1px rgb(60 40 160 / 0.06), 0 10px 24px -8px rgb(60 40 160 / 0.14);
+  --shadow-lg: 0 4px 8px -2px rgb(60 40 160 / 0.08), 0 20px 40px -12px rgb(60 40 160 / 0.2);
 }
 
 :root {
   color-scheme: light;
-  --radius: 0.5rem;
+  --radius: 0.875rem;
   --sidebar-w: 17rem;
 
-  /* Neutral, near-white surfaces. The page sits on a soft gray so white
-     cards and the white sidebar read as distinct planes. */
-  --background: #f0f2f5;
-  --foreground: #050505;
+  /* Soft lavender canvas with white cards floating on it. The page itself is
+     a gradient (see body below); --background is its base tone. */
+  --background: #eef0fa;
+  --foreground: #1d1740;
   --card: #ffffff;
-  --card-foreground: #050505;
+  --card-foreground: #1d1740;
   --popover: #ffffff;
-  --popover-foreground: #050505;
-  --surface-sunken: #f7f8fa;
+  --popover-foreground: #1d1740;
+  --surface-sunken: #f8f5fe;
   --sidebar: #ffffff;
-  --sidebar-border: #e4e6eb;
+  --sidebar-border: #e6e1f3;
 
-  /* Primary blue. Used for actions, selected state, links and focus rings
-     only — never for status, which has its own reserved colors below. */
-  --brand: #0866ff;
-  --brand-hover: #0a58d6;
+  /* Violet. Used for actions, selected state, links and focus rings only —
+     never for status, which has its own reserved colors below. --ink is the
+     deep indigo behind the active menu pill and the dark highlight cards. */
+  --brand: #5b3df5;
+  --brand-hover: #4a2fd8;
   --brand-foreground: #ffffff;
-  --brand-subtle: #e7f0ff;
+  --brand-subtle: #efeaff;
+  --ink: #2a1a6e;
+  --ink-foreground: #f4f1ff;
+  --chart-pink: #f472b6;
+  --chart-blue: #8db4ff;
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
 
-  --secondary: #e4e6eb;
-  --secondary-foreground: #050505;
-  --muted: #f0f2f5;
-  --muted-foreground: #65676b;
-  --accent: #f0f2f5;
-  --accent-foreground: #050505;
+  --secondary: #ece7f8;
+  --secondary-foreground: #1d1740;
+  --muted: #f3effc;
+  --muted-foreground: #6b6685;
+  --accent: #f1ecfd;
+  --accent-foreground: #1d1740;
 
   /* Status semantics — reserved meaning, never decoration.
      Green = confirmed/sent. Amber = pending. Red = failed. */
@@ -95,45 +104,49 @@
   --destructive-subtle: #fdeaea;
   --destructive-foreground: #ffffff;
 
-  --border: #dfe3e8;
-  --border-subtle: #eceff3;
-  --input: #cbd2d9;
-  --ring: rgb(8 102 255 / 0.45);
+  --border: #e6e1f3;
+  --border-subtle: #efebf8;
+  --input: #d5cdea;
+  --ring: rgb(91 61 245 / 0.4);
 
   /* Interaction tints. Row hover and selection are the brand hue at very low
      alpha rather than a gray, so "the app is responding" reads as the same
-     blue as every other affordance. */
-  --brand-faint: rgb(8 102 255 / 0.055);
-  --brand-faint-strong: rgb(8 102 255 / 0.1);
-  --table-head: #f3f5f8;
+     violet as every other affordance. */
+  --brand-faint: rgb(91 61 245 / 0.05);
+  --brand-faint-strong: rgb(91 61 245 / 0.1);
+  --table-head: #f6f2fd;
 }
 
 .dark {
   color-scheme: dark;
 
-  --background: #18191a;
-  --foreground: #e4e6eb;
-  --card: #242526;
-  --card-foreground: #e4e6eb;
-  --popover: #242526;
-  --popover-foreground: #e4e6eb;
-  --surface-sunken: #1c1d1f;
-  --sidebar: #242526;
-  --sidebar-border: #3a3b3c;
+  --background: #130f29;
+  --foreground: #ece8ff;
+  --card: #1e1a3b;
+  --card-foreground: #ece8ff;
+  --popover: #1e1a3b;
+  --popover-foreground: #ece8ff;
+  --surface-sunken: #181432;
+  --sidebar: #1e1a3b;
+  --sidebar-border: #342e5c;
 
-  --brand: #2d88ff;
-  --brand-hover: #4a9bff;
-  --brand-foreground: #ffffff;
-  --brand-subtle: #1c3a5e;
+  --brand: #8b7bff;
+  --brand-hover: #a094ff;
+  --brand-foreground: #130f29;
+  --brand-subtle: #2c2557;
+  --ink: #3b2a8f;
+  --ink-foreground: #f4f1ff;
+  --chart-pink: #f78fc3;
+  --chart-blue: #8db4ff;
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
 
-  --secondary: #3a3b3c;
-  --secondary-foreground: #e4e6eb;
-  --muted: #3a3b3c;
-  --muted-foreground: #b0b3b8;
-  --accent: #3a3b3c;
-  --accent-foreground: #e4e6eb;
+  --secondary: #2d2754;
+  --secondary-foreground: #ece8ff;
+  --muted: #2a2450;
+  --muted-foreground: #aaa3d0;
+  --accent: #2a2450;
+  --accent-foreground: #ece8ff;
 
   --success: #45bd62;
   --success-subtle: #1e3a28;
@@ -143,19 +156,46 @@
   --destructive-subtle: #3d1f22;
   --destructive-foreground: #ffffff;
 
-  --border: #3a3b3c;
-  --border-subtle: #303132;
-  --input: #4e4f50;
-  --ring: rgb(45 136 255 / 0.5);
+  --border: #342e5c;
+  --border-subtle: #2a2450;
+  --input: #4a4280;
+  --ring: rgb(139 123 255 / 0.5);
 
-  --brand-faint: rgb(45 136 255 / 0.1);
-  --brand-faint-strong: rgb(45 136 255 / 0.16);
-  --table-head: #2c2d2e;
+  --brand-faint: rgb(139 123 255 / 0.1);
+  --brand-faint-strong: rgb(139 123 255 / 0.16);
+  --table-head: #251f48;
 }
 
+/* The lavender-to-blush wash behind everything, fixed so it doesn't scroll
+   away from the floating canvas on top of it. */
 body {
   background-color: var(--color-background);
+  background-image:
+    radial-gradient(60rem 40rem at 10% -10%, rgb(143 128 255 / 0.28), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 0%, rgb(255 160 214 / 0.22), transparent 55%),
+    radial-gradient(50rem 40rem at 50% 110%, rgb(141 180 255 / 0.2), transparent 60%);
+  background-attachment: fixed;
   color: var(--color-foreground);
+}
+.dark body {
+  background-image:
+    radial-gradient(60rem 40rem at 10% -10%, rgb(91 61 245 / 0.28), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 0%, rgb(190 70 150 / 0.18), transparent 55%);
+}
+
+/* The big rounded canvas the whole app sits on, as in the reference. */
+@utility app-canvas {
+  background: color-mix(in oklab, var(--color-card) 55%, transparent);
+  backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in oklab, var(--color-card) 70%, transparent);
+  box-shadow: 0 30px 80px -30px rgb(60 40 160 / 0.28);
+}
+
+/* For short horizontal pill rows on phones, where a scrollbar would sit
+   under the pills; swiping is the affordance. Long content keeps its bar. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
 }
 
 /* ── Type scale ──────────────────────────────────────────────────────

@@ -1,9 +1,9 @@
-import { requireHrAccess } from "@/lib/rbac";
+import { requirePermission } from "@/lib/rbac";
 import { AppShell } from "@/components/shared/app-shell";
 import { ROLE_LABEL } from "@/lib/roles";
 
 export default async function HrLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireHrAccess();
+  const { user } = await requirePermission("FEEDBACK_REVIEW", "FEEDBACK_SEND");
 
   return (
     <AppShell userId={user.id} departmentId={user.departmentId} role={user.role} userName={user.name} userMeta={ROLE_LABEL[user.role]}>

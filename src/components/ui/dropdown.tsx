@@ -140,7 +140,7 @@ export function Dropdown({ options, value, onChange, placeholder = "Select…", 
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
         className={cn(
-          "flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-sm shadow-xs transition-ui",
+          "flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-input bg-card px-3 text-base sm:text-sm shadow-xs transition-ui",
           "hover:border-brand/40 focus-visible:outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand/25",
           open && "border-brand ring-2 ring-brand/25",
           disabled && "cursor-not-allowed opacity-50"

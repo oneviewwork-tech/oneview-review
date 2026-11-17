@@ -19,10 +19,10 @@ export function PeriodFilter({ periods }: { periods: { value: string; label: str
   const current = searchParams.get("period") ?? periods[0]?.value ?? "";
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex w-full items-center gap-1.5 sm:w-auto">
       <CalendarDays className="h-4 w-4 text-muted-foreground" aria-hidden />
       <Dropdown
-        className="w-44"
+        className="w-full sm:w-44"
         value={current}
         onChange={(value) => {
           const params = new URLSearchParams(searchParams.toString());

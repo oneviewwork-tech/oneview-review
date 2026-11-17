@@ -2,14 +2,15 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, Dices } from "lucide-react";
+import { Plus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dropdown } from "@/components/ui/dropdown";
+import { PeoplePicker } from "@/components/admin/people-picker";
 import { createUser, updateUser } from "@/actions/admin.actions";
-import { ROLE_OPTIONS } from "@/lib/roles";
+import type { PeopleAccount } from "@/services/people/directory";
 import type { UserRole } from "@prisma/client";
 import type { ScopeOrganization } from "@/components/hr/scope-filter";
 
@@ -17,35 +18,47 @@ export interface EditableUser {
   id: string;
   name: string;
   email: string;
-  role: UserRole;
+  roleId: string | null;
   departmentId: string | null;
   organizationId: string | null;
 }
 
-function randomPassword() {
-  return Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-6).toUpperCase() + "!1";
+/** A role this person may hand out (the server checks again). */
+export interface AssignableRole {
+  id: string;
+  name: string;
+  baseRole: UserRole;
+  description: string | null;
+  /** The organization the role is limited to, if any. */
+  organizationName: string | null;
 }
 
 /**
- * One dialog for both adding a user and editing one — role, scope
- * (organization/department), and password reset all live here. Mirrors
+ * One dialog for both adding a user and editing one — role and scope
+ * (organization/department) live here; the password does not, because it is
+ * People's. Mirrors
  * EmployeeDialog's add/edit split so the two forms can't drift apart.
  */
 export function UserDialog({
   organizations,
   user,
+  roles,
 }: {
   organizations: ScopeOrganization[];
-  /** Omit to add; pass a user to edit their role, scope, or password. */
+  /** Omit to add; pass a user to edit their role or scope. */
   user?: EditableUser;
+  /** The roles this person may give. */
+  roles: AssignableRole[];
 }) {
   const editing = !!user;
   const [open, setOpen] = useState(false);
-  const [role, setRole] = useState<UserRole>(user?.role ?? "DEPARTMENT_HEAD");
+  const [picked, setPicked] = useState<PeopleAccount | null>(null);
+  const [roleId, setRoleId] = useState(user?.roleId ?? roles.find((r) => r.baseRole === "EMPLOYEE")?.id ?? roles[0]?.id ?? "");
+  const picked_role = roles.find((r) => r.id === roleId);
+  const role: UserRole = picked_role?.baseRole ?? "EMPLOYEE";
   const [organizationId, setOrganizationId] = useState(user?.organizationId ?? organizations[0]?.id ?? "");
   const departmentOptions = organizations.find((o) => o.id === organizationId)?.departments ?? [];
   const [departmentId, setDepartmentId] = useState(user?.departmentId ?? departmentOptions[0]?.id ?? "");
-  const [password, setPassword] = useState(editing ? "" : randomPassword());
   const [state, formAction, isPending] = useActionState(editing ? updateUser : createUser, undefined);
   const router = useRouter();
 
@@ -78,12 +91,7 @@ export function UserDialog({
           <Pencil className="h-3.5 w-3.5" />
         </button>
       ) : (
-        <Button
-          onClick={() => {
-            setPassword(randomPassword());
-            setOpen(true);
-          }}
-        >
+        <Button onClick={() => setOpen(true)}>
           <Plus className="h-3.5 w-3.5" />
           Add User
         </Button>
@@ -95,34 +103,49 @@ export function UserDialog({
         title={editing ? `Edit ${user.name}` : "Add user"}
         description={
           editing
-            ? "Change their role, scope, or reset their password."
-            : "They must change this password on first login."
+            ? "Change their Review role or scope. Saving also clears any sign-in lockout."
+            : "Give someone who already has a ONEVIEW People account a role in Review."
         }
       >
         <form action={formAction} className="space-y-4">
           {editing && <input type="hidden" name="userId" value={user.id} />}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="user-name">Name</Label>
-            <Input id="user-name" name="name" defaultValue={user?.name} required autoFocus />
-            {err("name") && <p className="text-sm text-destructive">{err("name")}</p>}
-          </div>
+          {editing ? (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="user-name">Name</Label>
+                <Input id="user-name" name="name" defaultValue={user?.name} required autoFocus />
+                {err("name") && <p className="text-sm text-destructive">{err("name")}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="user-email">Sign-in email</Label>
+                <Input id="user-email" name="email" type="email" defaultValue={user?.email} required />
+                <p className="text-metadata">Must be their ONEVIEW People login. Change it only to repair a mismatch.</p>
+                {err("email") && <p className="text-sm text-destructive">{err("email")}</p>}
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>Person in ONEVIEW People</Label>
+              <PeoplePicker picked={picked} onPick={setPicked} />
+              {/* The server re-reads the name from People; these only say who. */}
+              <input type="hidden" name="name" value={picked?.name ?? ""} />
+              <input type="hidden" name="email" value={picked?.email ?? ""} />
+              {err("email") && <p className="text-sm text-destructive">{err("email")}</p>}
+            </div>
+          )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="user-email">Email</Label>
-            <Input id="user-email" name="email" type="email" defaultValue={user?.email} required />
-            {err("email") && <p className="text-sm text-destructive">{err("email")}</p>}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="user-role">Role</Label>
+            <Label htmlFor="user-role">Role in Review</Label>
             <Dropdown
               id="user-role"
-              name="role"
-              value={role}
-              onChange={(v) => setRole(v as UserRole)}
-              options={ROLE_OPTIONS.map((r) => ({ value: r.value, label: r.label }))}
+              name="roleId"
+              value={roleId}
+              onChange={setRoleId}
+              options={roles.map((r) => ({ value: r.id, label: r.name, hint: r.organizationName ?? undefined }))}
             />
+            {picked_role?.description && <p className="text-metadata">{picked_role.description}</p>}
           </div>
 
           {role === "DEPARTMENT_HEAD" && (
@@ -151,26 +174,7 @@ export function UserDialog({
             </>
           )}
 
-          <div className="space-y-1.5">
-            <Label htmlFor="user-password">{editing ? "Reset password" : "Temporary password"}</Label>
-            <div className="flex gap-2">
-              <Input
-                id="user-password"
-                name="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={editing ? "Leave blank to keep current password" : undefined}
-                required={!editing}
-              />
-              <Button type="button" variant="outline" size="icon" onClick={() => setPassword(randomPassword())} aria-label="Generate password">
-                <Dices className="h-4 w-4" />
-              </Button>
-            </div>
-            {editing && (
-              <p className="text-metadata">Setting a password here forces them to change it again at next login.</p>
-            )}
-            {err("password") && <p className="text-sm text-destructive">{err("password")}</p>}
-          </div>
+          <p className="text-metadata">Passwords are managed in ONEVIEW People; they sign in here with the same email and password.</p>
 
           {state && !state.success && !state.fieldErrors && <p className="text-sm text-destructive">{state.message}</p>}
 
@@ -178,7 +182,11 @@ export function UserDialog({
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" loading={isPending} disabled={role === "DEPARTMENT_HEAD" && !departmentId}>
+            <Button
+              type="submit"
+              loading={isPending}
+              disabled={(role === "DEPARTMENT_HEAD" && !departmentId) || (!editing && !picked)}
+            >
               {editing ? "Save changes" : "Create"}
             </Button>
           </div>

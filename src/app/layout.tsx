@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fredoka } from "next/font/google";
-import { ThemeScript } from "@/components/shared/theme-script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -31,17 +30,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    // suppressHydrationWarning: theme-script.tsx adds the `dark` class to
-    // <html> before hydration, so the client's className legitimately
-    // differs from the server's. Scoped to this element only.
+    // Light theme only: there is no dark-mode switch.
     <html
       lang="en"
-      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${fredoka.variable} h-full antialiased`}
     >
-      <head>
-        <ThemeScript />
-      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">{children}</body>
     </html>
   );

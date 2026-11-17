@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, AlertTriangle, Undo2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getAccessProfile } from "@/lib/rbac";
 import { renderEmail } from "@/domain/email/render";
 import { monthNameForPeriod, yearForPeriod, formatReviewPeriod } from "@/domain/review/period";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -15,8 +16,9 @@ import { RequestRevisionButton } from "@/components/hr/request-revision-button";
 
 export default async function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const submission = await prisma.feedbackSubmission.findUnique({ where: { id } });
-  if (!submission) notFound();
+  const [submission, profile] = await Promise.all([prisma.feedbackSubmission.findUnique({ where: { id } }), getAccessProfile()]);
+  // A role limited to one organization sees only that organization's submissions.
+  if (!submission || (profile.organizationId && submission.organizationId !== profile.organizationId)) notFound();
 
   const email = renderEmail(submission.templateType, {
     employee_name: submission.employeeName,
@@ -41,7 +43,17 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
           eyebrow={`${submission.organizationName} · ${submission.departmentName}`}
           title={submission.employeeName}
           description={`Review period ${formatReviewPeriod(submission.reviewPeriod)} · submitted by ${submission.departmentHeadName}`}
-          actions={<StatusBadge status={submission.status} />}
+          actions={
+            <>
+              <Link
+                href={`/performance/people/${submission.employeeId}`}
+                className="text-sm text-brand hover:underline"
+              >
+                View performance
+              </Link>
+              <StatusBadge status={submission.status} />
+            </>
+          }
         />
       </div>
 
@@ -58,7 +70,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
       )}
 
       {/* The feedback stands alone, because it is the only part a person
-          wrote — everything around it in the email is fixed template copy. */}
+          wrote, everything around it in the email is fixed template copy. */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-3">
           <CardTitle>Feedback from {submission.departmentHeadName}</CardTitle>

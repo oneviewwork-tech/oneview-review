@@ -105,7 +105,7 @@ export async function createSubmission(
   revalidatePath("/my-submissions");
   return ok(
     { id: submission.id },
-    `Feedback submitted for ${employee.name} — ${formatReviewPeriod(reviewPeriod)}.`
+    `Feedback submitted for ${employee.name}, ${formatReviewPeriod(reviewPeriod)}.`
   );
 }
 

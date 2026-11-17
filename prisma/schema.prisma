@@ -24,6 +24,7 @@ enum UserRole {
   DEPARTMENT_HEAD // scoped to exactly one department (own employees/submissions only)
   HR // all departments, review/confirm/send
   ADMIN // department/employee/user maintenance
+  EMPLOYEE // signed in via People with no Review duties: sees only their own performance
 }
 
 model User {
@@ -39,17 +40,31 @@ model User {
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
 
-  isActive           Boolean   @default(true)
-  mustChangePassword Boolean   @default(true)
-  failedLoginAttempts Int      @default(0)
-  lockedUntil        DateTime?
+  /// What this person may do in Review (see src/lib/permissions.ts). `role`
+  /// above mirrors the role's base type and still decides which screens
+  /// the app shell routes them to.
+  reviewRoleId String?
+  reviewRole   ReviewRole? @relation(fields: [reviewRoleId], references: [id])
+
+  isActive            Boolean   @default(true)
+  mustChangePassword  Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions        FeedbackSubmission[] @relation("SubmittedBy")
-  confirmedSubmissions FeedbackSubmission[] @relation("ConfirmedBy")
-  auditEvents        AuditEvent[]
+  submissions           FeedbackSubmission[] @relation("SubmittedBy")
+  confirmedSubmissions  FeedbackSubmission[] @relation("ConfirmedBy")
+  auditEvents           AuditEvent[]
+  perfScoredAssignments PerfAssignment[]
+  perfScoresEntered     PerfScore[]
+  perfPenaltiesEntered  PerfPenalty[]
+  notifications         Notification[]
+  ratingsReceived       ManagerRating[]
+  perfReviewsSubmitted  PerfReview[]         @relation("PerfReviewSubmittedBy")
+  perfReviewsToReview   PerfReview[]         @relation("PerfReviewReviewer")
+  perfReviewsDecided    PerfReview[]         @relation("PerfReviewDecidedBy")
 }
 
 /// One of the company's legal entities. The business runs two — Haris & Co.
@@ -71,6 +86,7 @@ model Organization {
   departments Department[]
   employees   Employee[]
   submissions FeedbackSubmission[]
+  pinnedRoles ReviewRole[]
 }
 
 model Department {
@@ -83,9 +99,9 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users       User[]
-  employees   Employee[]
-  submissions FeedbackSubmission[]
+  users             User[]
+  employees         Employee[]
+  submissions       FeedbackSubmission[]
   /// Employees who are reviewable here in addition to their home
   /// department — see EmployeeDepartmentLink.
   additionalMembers EmployeeDepartmentLink[]
@@ -106,9 +122,20 @@ model Employee {
   departmentId   String
   department     Department   @relation(fields: [departmentId], references: [id])
 
+  /// The email this person signs in with in ONEVIEW People, when it differs
+  /// from `email` above (which is where their review emails are sent).
+  /// Filled by the People refresh, so a login can find its Employee row even
+  /// when the two addresses are not the same.
+  peopleEmail String?
+
+  /// This person's id in ONEVIEW People — the permanent link. Once set, the
+  /// People sync follows it, so a renamed or re-emailed person is still the
+  /// same person and is never duplicated.
+  peopleEmployeeId String? @unique
+
   /// Job title as recorded by HR. Display-only — never used for routing or
   /// permissions.
-  designation String?
+  designation          String?
   /// Who this person reports to, stored as the plain name HR maintains
   /// rather than a self-relation: the source data references managers who
   /// are not themselves employee records (C-suite without mailboxes), so a
@@ -120,14 +147,20 @@ model Employee {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions FeedbackSubmission[]
+  submissions           FeedbackSubmission[]
+  perfAssignment        PerfAssignment?
+  perfScores            PerfScore[]
+  perfPenalties         PerfPenalty[]
+  ratingsGiven          ManagerRating[]
   /// Other departments this person is also reviewable under, on top of
   /// their home department above — e.g. a department head whose own
   /// performance is reviewed elsewhere. See EmployeeDepartmentLink.
   additionalDepartments EmployeeDepartmentLink[]
+  perfReviews           PerfReview[]
 
   @@index([departmentId])
   @@index([organizationId])
+  @@index([peopleEmail])
 }
 
 /// A department a given employee is reviewable under in addition to their
@@ -169,8 +202,8 @@ enum SubmissionStatus {
 model FeedbackSubmission {
   id String @id @default(cuid())
 
-  employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
+  employeeId    String
+  employee      Employee @relation(fields: [employeeId], references: [id])
   // Denormalized snapshots of employee/department identity at submission
   // time (§25 — "prefer relationships... historical info may still be
   // stored where required for audit/history"): if an employee is later
@@ -187,9 +220,9 @@ model FeedbackSubmission {
   department     Department @relation(fields: [departmentId], references: [id])
   departmentName String
 
-  departmentHeadId   String
-  departmentHead     User   @relation("SubmittedBy", fields: [departmentHeadId], references: [id])
-  departmentHeadName String
+  departmentHeadId    String
+  departmentHead      User    @relation("SubmittedBy", fields: [departmentHeadId], references: [id])
+  departmentHeadName  String
   /// Snapshot of the submitter's address, kept for the same reason as the
   /// other identity snapshots: this is who gets CC'd on the review email,
   /// and it must stay the person who actually submitted even if their
@@ -223,9 +256,9 @@ model FeedbackSubmission {
   revisionNote        String?
   revisionRequestedAt DateTime?
 
-  sentAt           DateTime?
-  resendMessageId  String?
-  emailError       String?
+  sentAt          DateTime?
+  resendMessageId String?
+  emailError      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -244,6 +277,241 @@ model FeedbackSubmission {
   @@index([reviewPeriod])
   // "My Submissions" filters solely on the submitting Department Head.
   @@index([departmentHeadId])
+}
+
+// ── Performance ──────────────────────────────────────────────────────
+//
+// Mirrors how the departmental sheets really score: every KPI has a maximum
+// number of points (its weight), the scorer awards points per week, a week
+// is the sum, a month is the average of the scored weeks. A KPI may instead
+// be measured against a target (see src/domain/performance/engine.ts).
+// Employee identity is NOT duplicated here — everything points at Employee.
+
+enum PerfKpiMode {
+  RATING // scorer awards points 0..maxPoints
+  TARGET // scorer enters the measured value; points derive from target
+}
+
+enum PerfDirection {
+  HIGHER_IS_BETTER
+  LOWER_IS_BETTER
+}
+
+/// A role's scorecard (Academic Lead, Mentor, SHO...). Carries the
+/// role-clarity text shown on a person's page.
+model PerfTemplate {
+  id               String  @id @default(cuid())
+  name             String  @unique
+  roleDefinition   String?
+  responsibilities String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  versions    PerfTemplateVersion[]
+  assignments PerfAssignment[]
+}
+
+/// The KRA/KPI set in force from a month onward. KPIs change between months
+/// in the source sheets, so changing a template means adding a version —
+/// scores already entered keep pointing at the KPIs they were entered against.
+model PerfTemplateVersion {
+  id            String       @id @default(cuid())
+  templateId    String
+  template      PerfTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  /// First of the month this version takes effect.
+  effectiveFrom DateTime     @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  kras  PerfKra[]
+  risks PerfRisk[]
+
+  @@unique([templateId, effectiveFrom])
+}
+
+model PerfKra {
+  id        String              @id @default(cuid())
+  versionId String
+  version   PerfTemplateVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int                 @default(0)
+
+  kpis PerfKpi[]
+
+  @@index([versionId])
+}
+
+model PerfKpi {
+  id          String         @id @default(cuid())
+  kraId       String
+  kra         PerfKra        @relation(fields: [kraId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  maxPoints   Float
+  mode        PerfKpiMode    @default(RATING)
+  /// TARGET mode only.
+  target      Float?
+  direction   PerfDirection?
+  sortOrder   Int            @default(0)
+
+  scores PerfScore[]
+
+  @@index([kraId])
+}
+
+/// KRI / critical-metric rows: risks to watch, shown but never scored.
+model PerfRisk {
+  id          String              @id @default(cuid())
+  versionId   String
+  version     PerfTemplateVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  category    String
+  name        String
+  description String?
+  alertLevel  String?
+  sortOrder   Int                 @default(0)
+  /// A critical KPI: points entered against it come off the month's score.
+  deductible  Boolean             @default(false)
+  /// Most that can be deducted for it in a month; null = up to the scorecard's max.
+  maxPenalty  Float?
+  penalties   PerfPenalty[]
+
+  @@index([versionId])
+}
+
+/// Who is scored with which template, and by whom. This is the scoring tree
+/// (Head of Academics -> Academic Leads -> Mentors, S.SHO -> SHOs...). It is
+/// stored here because the HRMS does not carry it.
+model PerfAssignment {
+  id           String       @id @default(cuid())
+  employeeId   String       @unique
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  templateId   String
+  template     PerfTemplate @relation(fields: [templateId], references: [id])
+  scorerUserId String
+  scorer       User         @relation(fields: [scorerUserId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scorerUserId])
+  @@index([templateId])
+}
+
+model PerfScore {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kpiId      String
+  kpi        PerfKpi  @relation(fields: [kpiId], references: [id])
+  /// First of the month being scored, and the week within it (1-5).
+  period     DateTime @db.Date
+  week       Int
+  /// Points (RATING) or the measured value (TARGET).
+  value      Float
+  remark     String?
+
+  enteredById   String
+  enteredBy     User   @relation(fields: [enteredById], references: [id])
+  enteredByName String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, kpiId, period, week])
+  @@index([employeeId, period])
+}
+
+/// A deduction against a critical KPI for a month. The month's score is the
+/// average of its weeks minus the sum of these (never below zero).
+model PerfPenalty {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  riskId     String
+  risk       PerfRisk @relation(fields: [riskId], references: [id])
+  period     DateTime @db.Date
+  points     Float
+  remark     String?
+
+  enteredById   String
+  enteredBy     User   @relation(fields: [enteredById], references: [id])
+  enteredByName String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, riskId, period])
+  @@index([employeeId, period])
+}
+
+/// Where a person's month of scores has got to. There is no row while the
+/// Team Lead is still entering scores (that state is "draft"); a row appears
+/// when they submit, and moves SUBMITTED -> CONFIRMED, or back to
+/// NEEDS_REVISION with a note and round again until the reviewer is happy.
+/// CONFIRMED is what HR sees as final.
+enum PerfReviewStatus {
+  SUBMITTED // with the Department Head, waiting on their review
+  NEEDS_REVISION // sent back to the Team Lead with a note
+  CONFIRMED // approved; final, and with HR
+}
+
+model PerfReview {
+  id         String           @id @default(cuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  /// First of the month under review.
+  period     DateTime         @db.Date
+  status     PerfReviewStatus
+
+  submittedById   String
+  submittedBy     User     @relation("PerfReviewSubmittedBy", fields: [submittedById], references: [id])
+  submittedByName String
+  submittedAt     DateTime
+
+  /// Who reviews it: whoever scores the submitting Team Lead, worked out from
+  /// the scoring tree when the month is submitted. Null when nobody sits above
+  /// them — the submission then goes straight to HR.
+  reviewerUserId String?
+  reviewer       User?   @relation("PerfReviewReviewer", fields: [reviewerUserId], references: [id])
+
+  decidedById   String?
+  decidedBy     User?     @relation("PerfReviewDecidedBy", fields: [decidedById], references: [id])
+  decidedByName String?
+  decidedAt     DateTime?
+
+  /// Why it was sent back; present while status is NEEDS_REVISION.
+  revisionNote        String?
+  revisionRequestedAt DateTime?
+
+  /// Frozen when confirmed, so a later scorecard edit can't change a result
+  /// HR has already received.
+  finalScore  Float?
+  maxScore    Float?
+  weeksScored Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([employeeId, period])
+  @@index([status, period])
+  @@index([reviewerUserId, status])
+  @@index([submittedById])
+}
+
+/// One row, edited by HR/Admin: the cut-offs that turn a score into a grade
+/// (A/B/C) and a department average into a health label. Defaults are the
+/// ones HR's dashboard sheet uses.
+model PerfSettings {
+  id              String   @id @default("singleton")
+  gradeA          Float    @default(85)
+  gradeB          Float    @default(70)
+  healthHigh      Float    @default(80)
+  healthStable    Float    @default(70)
+  healthImproving Float    @default(60)
+  updatedAt       DateTime @updatedAt
+  updatedByName   String?
 }
 
 // ── Audit trail ──────────────────────────────────────────────────────
@@ -273,6 +541,15 @@ enum AuditAction {
   EMPLOYEE_UPDATED
   USER_CREATED
   USER_UPDATED
+  PERF_SCORE_SAVED
+  PERF_ASSIGNMENT_SAVED
+  PERF_TEMPLATE_SAVED
+  PERF_REVIEW_SUBMITTED
+  PERF_REVIEW_REVISION_REQUESTED
+  PERF_REVIEW_CONFIRMED
+  PERF_REMINDER_SENT
+  PERF_SETTINGS_SAVED
+  PEOPLE_SYNCED
 }
 
 model AuditEvent {
@@ -293,4 +570,92 @@ model AuditEvent {
 
   @@index([entityType, entityId])
   @@index([actorUserId])
+}
+
+/// In-app notifications, shown in the bell — the same shape as ONEVIEW
+/// People's, kept per Review user. `dedupeKey` stops a reminder being sent
+/// twice (e.g. "week 2 of October not scored" for one scorer).
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String?
+  href      String?
+  kind      String?
+  dedupeKey String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, isRead])
+}
+
+/// A permission a role can grant. Grouped and described in src/lib/permissions.ts.
+enum ReviewPermission {
+  PERF_VIEW_ALL
+  PERF_SCORE_ANY
+  PERF_DECIDE_ANY
+  PERF_SETUP
+  PERF_GRADE_SETTINGS
+  PERF_SEND_REMINDERS
+  FEEDBACK_SUBMIT_ANY
+  FEEDBACK_REVIEW
+  FEEDBACK_SEND
+  EMPLOYEES_MANAGE
+  USERS_MANAGE
+  ROLES_MANAGE
+  DEPARTMENTS_MANAGE
+}
+
+/// A role: a named set of permissions, optionally pinned to one
+/// organization ("HR · HACA" sees and manages only HACA). The four built-in
+/// roles (isSystem) are created by the migration and can't be deleted.
+model ReviewRole {
+  id                 String             @id @default(cuid())
+  name               String             @unique
+  description        String?
+  /// Which kind of account this is — decides the screens the app shows.
+  baseRole           UserRole
+  isSystem           Boolean            @default(false)
+  /// The Admin role: every permission, every organization, always.
+  isSuperAdmin       Boolean            @default(false)
+  permissions        ReviewPermission[] @default([])
+  /// Null = every organization.
+  homeOrganizationId String?
+  homeOrganization   Organization?      @relation(fields: [homeOrganizationId], references: [id])
+
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum RatedAs {
+  /**
+   * Their reporting manager — the person who scores them.
+   */
+  SCORER
+  /**
+   * Their head — the person who confirms the month.
+   */
+  REVIEWER
+}
+
+/// An employee's 1–5 star rating of their manager or head for a confirmed
+/// month, with an optional message. Never shown to the person rated: only
+/// HR and Admin see these, on Employee Performance. One per month per role.
+model ManagerRating {
+  id              String   @id @default(cuid())
+  raterEmployeeId String
+  rater           Employee @relation(fields: [raterEmployeeId], references: [id], onDelete: Cascade)
+  period          DateTime @db.Date
+  ratedAs         RatedAs
+  targetUserId    String
+  target          User     @relation(fields: [targetUserId], references: [id], onDelete: Cascade)
+  stars           Int
+  message         String?
+  createdAt       DateTime @default(now())
+
+  @@unique([raterEmployeeId, period, ratedAs])
+  @@index([targetUserId, period])
 }

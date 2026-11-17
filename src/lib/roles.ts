@@ -11,6 +11,7 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   DEPARTMENT_HEAD: "Team Lead",
   HR: "HR",
   ADMIN: "Admin",
+  EMPLOYEE: "Employee",
 };
 
 export const ROLE_OPTIONS: { value: UserRole; label: string }[] = (
@@ -28,5 +29,8 @@ export function homePathForRole(role: UserRole): string {
       // Admin is a superset of HR, so the operational dashboard is a more
       // useful landing than the setup screens.
       return "/overview";
+    case "EMPLOYEE":
+      // Signed in through People with no Review duties: their own scorecard.
+      return "/performance";
   }
 }

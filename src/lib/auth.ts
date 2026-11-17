@@ -4,6 +4,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/lib/auth.config";
 import { writeAuditEvent } from "@/lib/audit";
+import { findPeopleIdentity, initialReviewRole, PEOPLE_MANAGED } from "@/services/people/identity";
+import { accountSwitcherEnabled } from "@/lib/account-switcher";
 
 const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
@@ -18,18 +20,52 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
-        const user = await prisma.user.findUnique({ where: { email } });
+        // Credentials belong to ONEVIEW People: the same email and password
+        // work in both apps, and People decides who is a real, active
+        // person. Review keeps one row per person only for what People
+        // cannot know — their Review role, department scope and lockout
+        // counters.
+        const identity = await findPeopleIdentity(email);
 
-        // Same rejection path whether the account doesn't exist, is
-        // deactivated, or is locked — never reveals which to the caller.
-        if (!user || !user.isActive) {
+        // Same rejection path whether the account doesn't exist or is
+        // deactivated — never reveals which to the caller.
+        if (!identity || !identity.isActive) {
           await writeAuditEvent(prisma, {
             entityType: "User",
             entityId: email,
             action: "LOGIN_FAILED",
             actorUserId: null,
             actorEmail: email,
-            metadata: { reason: user ? "inactive" : "not_found" },
+            metadata: { reason: identity ? "inactive" : "not_found" },
+          });
+          await bcrypt.compare(password, "$2a$10$invalidsaltinvalidsaltinvalidsaltinva");
+          return null;
+        }
+
+        // Provisioned on first sight, before the password check, so a wrong
+        // password counts toward the lockout from the very first attempt.
+        // isActive is deliberately not touched on update: deactivating
+        // someone in Review must keep holding even though People says active.
+        const user = await prisma.user.upsert({
+          where: { email: identity.email },
+          create: {
+            email: identity.email,
+            name: identity.name,
+            role: initialReviewRole(identity),
+            passwordHash: PEOPLE_MANAGED,
+            mustChangePassword: false,
+          },
+          update: { name: identity.name, mustChangePassword: false },
+        });
+
+        if (!user.isActive) {
+          await writeAuditEvent(prisma, {
+            entityType: "User",
+            entityId: user.id,
+            action: "LOGIN_FAILED",
+            actorUserId: user.id,
+            actorEmail: user.email,
+            metadata: { reason: "inactive_in_review" },
           });
           await bcrypt.compare(password, "$2a$10$invalidsaltinvalidsaltinvalidsaltinva");
           return null;
@@ -47,7 +83,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
-        const valid = await bcrypt.compare(password, user.passwordHash);
+        const valid = await bcrypt.compare(password, identity.passwordHash);
         if (!valid) {
           const attempts = user.failedLoginAttempts + 1;
           const lockingNow = attempts >= LOCKOUT_THRESHOLD;
@@ -94,6 +130,33 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         };
       },
     }),
+    // Test-only: sign in as any active Review user without a password.
+    // Registered only when the switcher is enabled (local DB, dev build,
+    // ACCOUNT_SWITCHER=on) and re-checked on every use.
+    ...(accountSwitcherEnabled()
+      ? [
+          Credentials({
+            id: "account-switcher",
+            name: "Account switcher (test only)",
+            credentials: { email: {} },
+            authorize: async (credentials) => {
+              if (!accountSwitcherEnabled()) return null;
+              const email = (credentials?.email as string | undefined)?.trim().toLowerCase();
+              if (!email) return null;
+              const user = await prisma.user.findUnique({ where: { email } });
+              if (!user || !user.isActive) return null;
+              return {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                departmentId: user.departmentId,
+                mustChangePassword: false,
+              };
+            },
+          }),
+        ]
+      : []),
   ],
   events: {
     signOut: async (message) => {

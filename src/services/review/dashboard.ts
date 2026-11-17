@@ -35,11 +35,19 @@ export interface DepartmentProgress {
  * the region. One groupBy returns every status bucket at once, and both
  * queries are issued concurrently.
  */
+export interface ScopeFilterInput {
+  organizationId?: string;
+  departmentId?: string;
+}
+
 export async function getOverview(
   period: Date = reviewPeriodForDate(new Date()),
-  organizationId?: string
+  filter: ScopeFilterInput = {}
 ): Promise<OverviewCounters> {
-  const scope = organizationId ? { organizationId } : {};
+  const scope = {
+    ...(filter.organizationId ? { organizationId: filter.organizationId } : {}),
+    ...(filter.departmentId ? { departmentId: filter.departmentId } : {}),
+  };
   const [totalEmployees, byStatus] = await Promise.all([
     prisma.employee.count({ where: { isActive: true, ...scope } }),
     prisma.feedbackSubmission.groupBy({
@@ -79,11 +87,16 @@ export async function getOverview(
  */
 export async function getDepartmentProgress(
   period: Date = reviewPeriodForDate(new Date()),
-  organizationId?: string
+  filter: ScopeFilterInput = {}
 ): Promise<DepartmentProgress[]> {
-  const scope = organizationId ? { organizationId } : {};
+  const orgScope = filter.organizationId ? { organizationId: filter.organizationId } : {};
+  const scope = { ...orgScope, ...(filter.departmentId ? { departmentId: filter.departmentId } : {}) };
   const [departments, employeeCounts, linkedCounts, submissionCounts] = await Promise.all([
-    prisma.department.findMany({ where: scope, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.department.findMany({
+      where: { ...orgScope, ...(filter.departmentId ? { id: filter.departmentId } : {}) },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    }),
     prisma.employee.groupBy({ by: ["departmentId"], where: { isActive: true, ...scope }, _count: { _all: true } }),
     // Employees reviewable here only via an additional link (§
     // EmployeeDepartmentLink), on top of their home department elsewhere —
@@ -91,7 +104,7 @@ export async function getDepartmentProgress(
     // needs to review.
     prisma.employeeDepartmentLink.groupBy({
       by: ["departmentId"],
-      where: { employee: { isActive: true }, department: scope },
+      where: { employee: { isActive: true }, department: { ...orgScope, ...(filter.departmentId ? { id: filter.departmentId } : {}) } },
       _count: { _all: true },
     }),
     prisma.feedbackSubmission.groupBy({ by: ["departmentId"], where: { reviewPeriod: period, ...scope }, _count: { _all: true } }),
