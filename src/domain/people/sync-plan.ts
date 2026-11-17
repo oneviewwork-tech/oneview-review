@@ -62,6 +62,8 @@ export interface EmployeeChange {
   what: string[];
   /** Leave the holding department for the one People now gives them. */
   moveToDepartmentKey?: string;
+  /** People moved them to another organization: their record follows (never a duplicate). */
+  moveToOrgCode?: string;
 }
 
 export interface SyncPlan {
@@ -101,15 +103,16 @@ export function planSync(input: {
   const claimed = new Set<string>(); // People ids already taken
   const link = new Map<string, PeopleRow>(); // review id -> people row
 
-  const claim = (r: ReviewPerson, p: PeopleRow | undefined) => {
-    if (!p || claimed.has(p.id) || p.orgCode !== r.orgCode) return false;
+  const claim = (r: ReviewPerson, p: PeopleRow | undefined, acrossOrgs = false) => {
+    if (!p || claimed.has(p.id) || (!acrossOrgs && p.orgCode !== r.orgCode)) return false;
     claimed.add(p.id);
     link.set(r.id, p);
     return true;
   };
 
   // 1. Already linked.
-  for (const r of review) if (r.peopleEmployeeId) claim(r, byId.get(r.peopleEmployeeId));
+  // An explicit link holds even if People has since moved them to another organization.
+  for (const r of review) if (r.peopleEmployeeId) claim(r, byId.get(r.peopleEmployeeId), true);
 
   // 2. By email, either address on either side.
   const peopleByEmail = new Map<string, PeopleRow[]>();
@@ -172,7 +175,7 @@ export function planSync(input: {
       if (p.active) plan.activate.push(r.id);
       else plan.deactivate.push({ id: r.id, name: r.name, why: "inactive in ONEVIEW People" });
     }
-    if (what.length || (norm(r.departmentName) === norm(UNASSIGNED.name) && p.department)) pending.push({ r, p, change: { id: r.id, name: r.name, data, what } });
+    if (what.length || r.orgCode !== p.orgCode || (norm(r.departmentName) === norm(UNASSIGNED.name) && p.department)) pending.push({ r, p, change: { id: r.id, name: r.name, data, what } });
   }
 
   // New people: in People, active, and nobody in Review is them.
@@ -207,7 +210,14 @@ export function planSync(input: {
   // Someone held in Unassigned moves once People gives them a department.
   // Anyone else keeps the department HR placed them in (Review's own structure).
   for (const { r, p, change } of pending) {
-    if (norm(r.departmentName) === norm(UNASSIGNED.name) && p.department) {
+    if (r.orgCode !== p.orgCode) {
+      const key = p.department ? ensureDept(p.orgCode, p.department, p.departmentCode) : ensureDept(p.orgCode, UNASSIGNED.name, UNASSIGNED.code);
+      if (key) {
+        change.moveToOrgCode = p.orgCode;
+        change.moveToDepartmentKey = key;
+        change.what.push(`organization: ${p.orgCode}`);
+      }
+    } else if (norm(r.departmentName) === norm(UNASSIGNED.name) && p.department) {
       const key = ensureDept(p.orgCode, p.department, p.departmentCode);
       if (key) {
         change.moveToDepartmentKey = key;

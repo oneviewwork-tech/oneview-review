@@ -178,7 +178,10 @@ export async function runPeopleSync(options: { apply: boolean; actor: { id: stri
 
   await inBatches(plan.update, async (tx, u) => {
     const move = u.moveToDepartmentKey ? deptId.get(u.moveToDepartmentKey) : undefined;
-    await tx.employee.update({ where: { id: u.id }, data: { ...u.data, ...(move ? { departmentId: move } : {}) } });
+    await tx.employee.update({
+      where: { id: u.id },
+      data: { ...u.data, ...(move ? { departmentId: move } : {}), ...(u.moveToOrgCode && move ? { organizationId: orgId.get(u.moveToOrgCode)! } : {}) },
+    });
     // Joiners, returners and leavers are worth a line of their own; routine
     // detail changes are covered by the run's summary.
     if (u.data.isActive !== undefined) {

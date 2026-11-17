@@ -134,6 +134,13 @@ describe("new people", () => {
     expect(plan.update[0].moveToDepartmentKey).toBe("HACA|academics");
   });
 
+  it("follows People when it moves someone to another organization, instead of duplicating them", () => {
+    const plan = run([person("n", "N", { orgCode: "HARISCO", department: "Academics" })], [emp("n", "N", { peopleEmployeeId: "n" })]);
+    expect(plan.create).toHaveLength(0);
+    expect(plan.update[0].moveToOrgCode).toBe("HARISCO");
+    expect(plan.update[0].moveToDepartmentKey).toBe("HARISCO|academics");
+  });
+
   it("never moves someone HR placed in a review department", () => {
     const plan = run([person("n", "N", { department: "Marketing" })], [emp("n", "N", { peopleEmployeeId: "n" })]);
     expect(plan.update).toHaveLength(0);
