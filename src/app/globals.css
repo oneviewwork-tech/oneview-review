@@ -448,3 +448,16 @@ body {
     color: var(--color-brand);
   }
 }
+
+/* The navigation panel: white with a soft violet/pink aurora (ONEVIEW family sidebar). */
+@utility sidebar-aurora {
+  background:
+    radial-gradient(120% 45% at 0% 100%, rgba(232, 121, 249, 0.22) 0%, transparent 60%),
+    radial-gradient(110% 40% at 100% 92%, rgba(167, 139, 250, 0.28) 0%, transparent 62%),
+    radial-gradient(90% 30% at 50% 0%, rgba(255, 255, 255, 1) 0%, transparent 70%),
+    linear-gradient(180deg, #ffffff 0%, #fbfaff 55%, #f6f0ff 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+    0 0 0 1px rgba(124, 58, 237, 0.06),
+    0 18px 40px -22px rgba(76, 29, 149, 0.35);
+}

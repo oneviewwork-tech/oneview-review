@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { after } from "next/server";
-import { AppTopNav } from "@/components/shared/app-top-nav";
+import { AppSidebarLayout } from "@/components/shared/app-sidebar";
 import { ToastProvider } from "@/components/ui/toast";
 import { signOutAction } from "@/actions/auth.actions";
 import { navigationForRole } from "@/lib/navigation";
@@ -99,17 +99,18 @@ export async function AppShell({
 
   return (
     <ToastProvider>
-      <div className="min-h-full flex-1 sm:p-2">
-        {/* A thin frame around the rounded canvas; edge to edge on phones. */}
-        <div className="app-canvas mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col px-4 py-4 sm:min-h-[calc(100dvh-1rem)] sm:rounded-[1.5rem] sm:px-6 sm:py-5">
-          <Suspense
-            fallback={<AppTopNav {...brandProps} sections={sections} userName={userName} userMeta={userMeta} badges={{}} signOut={signOutAction} switcher={<Switcher />} />}
-          >
-            <AppTopNav {...brandProps} sections={sections} userName={userName} userMeta={userMeta} badges={badges} signOut={signOutAction} switcher={<Switcher />} bell={<Suspense fallback={null}><Bell userId={userId} /></Suspense>} />
-          </Suspense>
-          <main className="mt-6 w-full min-w-0 flex-1 sm:mt-8">{children}</main>
-        </div>
-      </div>
+        <AppSidebarLayout
+          {...brandProps}
+          sections={sections}
+          userName={userName}
+          userMeta={userMeta}
+          badges={badges}
+          signOut={signOutAction}
+          switcher={<Switcher />}
+          bell={<Suspense fallback={null}><Bell userId={userId} /></Suspense>}
+        >
+          {children}
+        </AppSidebarLayout>
     </ToastProvider>
   );
 }

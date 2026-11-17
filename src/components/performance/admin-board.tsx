@@ -146,7 +146,7 @@ export function AdminBoard({
       </div>
 
       {/* ── Bento ───────────────────────────────────────────────── */}
-      <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-8 grid gap-5 md:grid-cols-2 2xl:grid-cols-4">
         {/* Top performers: the best of each department, or of the one in view */}
         {tops.length === 1 ? (
           <Tile className="relative flex min-h-72 flex-col justify-end overflow-hidden bg-ink p-6 text-white">
@@ -332,7 +332,7 @@ export function AdminBoard({
         </Tile>
 
         {/* Departments: who still has to score, which week, how many */}
-        <Tile className="flex flex-col p-0 md:col-span-2 xl:col-span-3">
+        <Tile className="flex flex-col p-0 md:col-span-2 2xl:col-span-3">
           <div className="flex flex-wrap items-end justify-between gap-3 p-6 pb-4">
             <div>
               <p className="flex items-center gap-2 text-lg font-semibold">
@@ -428,8 +428,8 @@ export function AdminBoard({
         </Tile>
 
         {/* The report, wide */}
-        <div className="md:col-span-2 xl:col-span-4">{report}</div>
-        <div className="md:col-span-2 xl:col-span-4 empty:hidden">{side}</div>
+        <div className="md:col-span-2 2xl:col-span-4">{report}</div>
+        <div className="md:col-span-2 2xl:col-span-4 empty:hidden">{side}</div>
       </div>
     </div>
   );
