@@ -2,7 +2,7 @@
 
 import { Suspense, use, useState, useSyncExternalStore } from "react";
 import Link, { useLinkStatus } from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   PenSquare,
   ClipboardList,
@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandLogo, type Brand } from "@/components/shared/brand-logo";
+import { Dropdown } from "@/components/ui/dropdown";
+import { setOrgScope } from "@/actions/org-scope.actions";
 import type { NavSection, NavIcon, NavItem } from "@/lib/navigation";
 import type { NavBadges } from "@/services/review/sidebar";
 
@@ -111,8 +113,8 @@ export function AppSidebarLayout({
   signOut,
   switcher,
   bell,
-  homeBrand,
-  seesAllOrgs,
+  brand,
+  orgSwitch,
   children,
 }: {
   sections: NavSection[];
@@ -127,14 +129,30 @@ export function AppSidebarLayout({
   switcher?: React.ReactNode;
   /** The notification bell (server-rendered, streamed). */
   bell?: React.ReactNode;
-  homeBrand: Brand;
-  /** HR / Admin: the mark follows the organization picked in the filter (both when none). */
-  seesAllOrgs: boolean;
+  /** The mark: the organization in view (both when all are). */
+  brand: Brand;
+  /** People who can see several organizations pick one here; it holds on every page. */
+  orgSwitch?: { options: { id: string; name: string }[]; selected: string | null };
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const org = useSearchParams().get("org");
-  const brand: Brand = seesAllOrgs ? (!org || org === "all" ? "all" : org.includes("haca") ? "haca" : "harisco") : homeBrand;
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [switching, setSwitching] = useState(false);
+
+  // Picking an organization: remember it, drop any page filters that pointed
+  // into the previous one, and re-render the page for the new one.
+  const switchOrg = async (id: string) => {
+    setSwitching(true);
+    await setOrgScope(id);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("org");
+    params.delete("department");
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname);
+    router.refresh();
+    setSwitching(false);
+  };
 
   const expanded = useStored(EXPANDED_KEY, "true") === "true";
   const collapsedGroups: Record<string, boolean> = JSON.parse(useStored(GROUPS_KEY, "{}"));
@@ -242,6 +260,31 @@ export function AppSidebarLayout({
           </button>
         )}
       </div>
+
+      {orgSwitch && orgSwitch.options.length > 1 &&
+        (wide ? (
+          <div className="mt-4 shrink-0 px-4">
+            <p className="mb-1.5 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink/80">
+              <Building2 className="size-3.5" /> Organization
+              {switching && <span aria-hidden className="ml-auto size-3 animate-spin rounded-full border-2 border-current border-t-transparent opacity-60" />}
+            </p>
+            <Dropdown
+              className="w-full"
+              value={orgSwitch.selected ?? "all"}
+              onChange={switchOrg}
+              options={[{ value: "all", label: "All organizations" }, ...orgSwitch.options.map((o) => ({ value: o.id, label: o.name }))]}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => write(EXPANDED_KEY, "true")}
+            title={`Organization: ${orgSwitch.options.find((o) => o.id === orgSwitch.selected)?.name ?? "All organizations"}`}
+            className="mx-auto mt-3 flex size-11 shrink-0 items-center justify-center rounded-full bg-white/70 text-muted-foreground ring-1 ring-violet-500/10 hover:text-foreground"
+          >
+            <Building2 className="size-[18px]" strokeWidth={1.75} />
+          </button>
+        ))}
 
       <nav
         aria-label="Main"

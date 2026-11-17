@@ -1,19 +1,20 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Building2, Layers } from "lucide-react";
+import { Layers } from "lucide-react";
 import { Dropdown } from "@/components/ui/dropdown";
 
 export interface ScopeOrganization {
   id: string;
   name: string;
+  code?: string;
   departments: { id: string; name: string }[];
 }
 
 /**
- * Organization first, then department — the order HR asked for, and the
- * order the data nests in. Changing organization clears the department,
- * since a department only ever belongs to one organization.
+ * The page's department filter. The organization is chosen once, in the
+ * sidebar switcher, and holds across pages; `organizations` arrives already
+ * narrowed to it, so the departments listed are that organization's.
  */
 export function ScopeFilter({
   organizations,
@@ -26,15 +27,12 @@ export function ScopeFilter({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const org = searchParams.get("org") ?? "all";
   const department = searchParams.get("department") ?? "all";
+  // With several organizations in view, name each department's own.
+  const several = organizations.length > 1;
+  const departmentOptions = organizations.flatMap((o) => o.departments.map((d) => ({ ...d, name: several ? `${d.name} · ${o.name}` : d.name })));
 
-  const departmentOptions =
-    org === "all"
-      ? organizations.flatMap((o) => o.departments)
-      : (organizations.find((o) => o.id === org)?.departments ?? []);
-
-  function push(next: { org?: string; department?: string }) {
+  function push(next: { department?: string }) {
     const params = new URLSearchParams(searchParams.toString());
     for (const [key, value] of Object.entries(next)) {
       if (!value || value === "all") params.delete(key);
@@ -46,21 +44,6 @@ export function ScopeFilter({
 
   return (
     <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-      <div className="flex w-full items-center gap-1.5 sm:w-auto">
-        <Building2 className="h-4 w-4 text-muted-foreground" />
-        <Dropdown
-          className="w-full sm:w-52"
-          value={org}
-          // Department is dropped rather than kept: it would otherwise point
-          // into an organization that is no longer selected.
-          onChange={(value) => push({ org: value, department: "all" })}
-          options={[
-            { value: "all", label: "All Organizations" },
-            ...organizations.map((o) => ({ value: o.id, label: o.name })),
-          ]}
-        />
-      </div>
-
       {showDepartment && (
         <div className="flex w-full items-center gap-1.5 sm:w-auto">
           <Layers className="h-4 w-4 text-muted-foreground" />

@@ -17,6 +17,9 @@ import { NotificationsBell } from "@/components/shared/notifications-bell";
 import { getMyNotifications, syncScoringReminders } from "@/services/notifications/in-app";
 import { syncPeopleIfStale } from "@/services/people/auto-sync";
 import { photoUrlFor } from "@/services/people/photo";
+import { getAllScopeOrganizations } from "@/services/review/scope";
+import { getSelectedOrgId } from "@/lib/org-scope";
+import type { Brand } from "@/components/shared/brand-logo";
 
 /**
  * The bell. Before reading, it tops up this person's scoring reminders (one
@@ -95,7 +98,15 @@ export async function AppShell({
     : null;
   const ownOrg = pinnedOrg ?? me?.department?.organization.code ?? ownEmployee?.organization.code ?? null;
   const userPhoto = ownEmployee ? await photoUrlFor(ownEmployee.id).catch(() => undefined) : undefined;
-  const brandProps = { homeBrand: brandForOrgCode(ownOrg), seesAllOrgs: profile.can("PERF_VIEW_ALL") && !profile.organizationId };
+  // HR / Admin across organizations get the switcher; the mark follows their pick (both marks for all).
+  const canSwitch = !profile.organizationId && (profile.can("PERF_VIEW_ALL") || profile.can("FEEDBACK_REVIEW"));
+  const [orgChoices, selectedOrg] = canSwitch ? await Promise.all([getAllScopeOrganizations(), getSelectedOrgId()]) : [[], null];
+  const picked = orgChoices.find((o) => o.id === selectedOrg);
+  const brand: Brand = canSwitch ? (picked ? brandForOrgCode(picked.code) : "all") : brandForOrgCode(ownOrg);
+  const brandProps = {
+    brand,
+    orgSwitch: canSwitch ? { options: orgChoices.map((o) => ({ id: o.id, name: o.name })), selected: picked?.id ?? null } : undefined,
+  };
 
   return (
     <ToastProvider>
