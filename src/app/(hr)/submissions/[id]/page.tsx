@@ -4,6 +4,7 @@ import { ArrowLeft, AlertTriangle, Undo2 } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getAccessProfile } from "@/lib/rbac";
 import { renderEmail } from "@/domain/email/render";
+import { getTemplateOverrides } from "@/services/email/templates";
 import { monthNameForPeriod, yearForPeriod, formatReviewPeriod } from "@/domain/review/period";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmailPreview } from "@/components/shared/email-preview";
@@ -16,7 +17,7 @@ import { RequestRevisionButton } from "@/components/hr/request-revision-button";
 
 export default async function SubmissionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [submission, profile] = await Promise.all([prisma.feedbackSubmission.findUnique({ where: { id } }), getAccessProfile()]);
+  const [submission, profile, overrides] = await Promise.all([prisma.feedbackSubmission.findUnique({ where: { id } }), getAccessProfile(), getTemplateOverrides()]);
   // A role limited to one organization sees only that organization's submissions.
   if (!submission || (profile.organizationId && submission.organizationId !== profile.organizationId)) notFound();
 
@@ -25,7 +26,7 @@ export default async function SubmissionDetailPage({ params }: { params: Promise
     month_name: monthNameForPeriod(submission.reviewPeriod),
     year: String(yearForPeriod(submission.reviewPeriod)),
     feedback: submission.feedback,
-  });
+  }, overrides[submission.templateType]);
 
   return (
     <div className="mx-auto max-w-3xl animate-fade-up space-y-6">

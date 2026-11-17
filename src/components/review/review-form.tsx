@@ -10,7 +10,7 @@ import { Avatar } from "@/components/shared/avatar";
 import { EmailPreview } from "@/components/shared/email-preview";
 import { TemplateSelector } from "./template-selector";
 import { createSubmission } from "@/actions/submission.actions";
-import { renderEmail } from "@/domain/email/render";
+import { renderEmail, type TemplateOverrides } from "@/domain/email/render";
 import { monthNameForPeriod, yearForPeriod, parseReviewPeriod } from "@/domain/review/period";
 import type { TemplateType } from "@prisma/client";
 import type { ScopeOrganization } from "@/components/hr/scope-filter";
@@ -33,6 +33,7 @@ export function ReviewForm({
   organizations,
   submitterEmail,
   periods,
+  templateOverrides = {},
 }: {
   employees: ReviewEmployee[];
   /** Only populated for Admins, who choose organization then department. */
@@ -41,6 +42,8 @@ export function ReviewForm({
   submitterEmail: string;
   /** Selectable review months, most recent first; the first is the default. */
   periods: { value: string; label: string }[];
+  /** HR's edited wording, so the preview matches what will be sent. */
+  templateOverrides?: TemplateOverrides;
 }) {
   const [state, formAction, isPending] = useActionState(createSubmission, undefined);
   const isAdmin = organizations.length > 0;
@@ -105,8 +108,8 @@ export function ReviewForm({
       month_name: monthNameForPeriod(period),
       year: String(yearForPeriod(period)),
       feedback: feedback.trim() || "…",
-    });
-  }, [templateType, selectedEmployee, feedback, reviewPeriod]);
+    }, templateOverrides[templateType]);
+  }, [templateType, selectedEmployee, feedback, reviewPeriod, templateOverrides]);
 
   if (employees.length === 0) {
     return (

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/rbac";
 import { writeAuditEvent } from "@/lib/audit";
 import { renderEmail } from "@/domain/email/render";
+import { getTemplateOverrides } from "@/services/email/templates";
 import { monthNameForPeriod, yearForPeriod } from "@/domain/review/period";
 import { sendReviewEmail } from "@/services/email/resend";
 import { ok, fail, type ActionResult } from "@/lib/action-result";
@@ -79,18 +80,24 @@ export async function requestRevision(submissionId: string, note: string): Promi
   return ok(undefined, "Sent back to the Team Lead for revision.");
 }
 
-function buildEmail(submission: {
+/** The email as it will go out, in HR's current wording for its template. */
+async function buildEmail(submission: {
   templateType: "A" | "B" | "C";
   employeeName: string;
   feedback: string;
   reviewPeriod: Date;
 }) {
-  return renderEmail(submission.templateType, {
-    employee_name: submission.employeeName,
-    month_name: monthNameForPeriod(submission.reviewPeriod),
-    year: String(yearForPeriod(submission.reviewPeriod)),
-    feedback: submission.feedback,
-  });
+  const overrides = await getTemplateOverrides();
+  return renderEmail(
+    submission.templateType,
+    {
+      employee_name: submission.employeeName,
+      month_name: monthNameForPeriod(submission.reviewPeriod),
+      year: String(yearForPeriod(submission.reviewPeriod)),
+      feedback: submission.feedback,
+    },
+    overrides[submission.templateType]
+  );
 }
 
 async function deliverAndRecord(
@@ -106,7 +113,7 @@ async function deliverAndRecord(
   actor: { id: string; email: string },
   auditAction: "EMAIL_SENT" | "EMAIL_RESENT"
 ) {
-  const email = buildEmail(submission);
+  const email = await buildEmail(submission);
   // Whoever submitted the feedback is copied in, so the employee's manager
   // sees exactly what was sent about them and the employee can reply to
   // both. Older submissions predate this field and simply get no CC.

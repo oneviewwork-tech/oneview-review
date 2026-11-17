@@ -111,6 +111,7 @@ export function navigationForRole(
     can("DEPARTMENTS_MANAGE") && { href: "/admin/departments", label: "Departments", icon: "Building2" as const },
     can("EMPLOYEES_MANAGE") && EMPLOYEES_NAV_ITEM,
     (can("USERS_MANAGE") || can("ROLES_MANAGE")) && USERS_NAV_ITEM,
+    can("FEEDBACK_SEND") && { href: "/admin/templates", label: "Email Templates", icon: "Mail" as const },
   ].filter(Boolean) as NavItem[];
   // Everyone-in-view month-by-month table: for those who see every scorecard.
   const performance: NavSection = can("PERF_VIEW_ALL")

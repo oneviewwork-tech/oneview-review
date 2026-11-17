@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/shared/page-header";
 import { ReviewForm } from "@/components/review/review-form";
 import { getScopeOrganizations } from "@/services/review/scope";
+import { getTemplateOverrides } from "@/services/email/templates";
 import { formatReviewPeriod, reviewPeriodForDate, selectablePeriods, formatPeriodValue } from "@/domain/review/period";
 
 export default async function ReviewPage() {
@@ -61,6 +62,7 @@ export default async function ReviewPage() {
         organizations={organizations}
         submitterEmail={user.email}
         periods={periods}
+        templateOverrides={await getTemplateOverrides()}
       />
     </div>
   );

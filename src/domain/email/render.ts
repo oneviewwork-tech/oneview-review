@@ -8,6 +8,27 @@ export interface EmailVariables {
   feedback: string;
 }
 
+/** HR's edited wording; paragraphs in `body` are separated by a blank line. */
+export interface TemplateOverride {
+  subject: string;
+  body: string;
+}
+
+export type TemplateOverrides = Partial<Record<TemplateType, TemplateOverride>>;
+
+/** The built-in wording in the same editable shape. */
+export function defaultTemplate(type: TemplateType): TemplateOverride {
+  const def = EMAIL_TEMPLATES[type];
+  return { subject: def.subjectTemplate, body: def.paragraphs.join("\n\n") };
+}
+
+export const paragraphsOf = (body: string) =>
+  body
+    .replace(/\r\n/g, "\n")
+    .split(/\n[ \t]*\n/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+
 export interface RenderedEmail {
   subject: string;
   text: string;
@@ -33,8 +54,8 @@ function escapeHtml(value: string): string {
  * text body verbatim; HTML vars are escaped so a feedback string containing
  * "<" or "&" can't break the markup.
  */
-export function renderEmail(type: TemplateType, vars: EmailVariables): RenderedEmail {
-  const def = EMAIL_TEMPLATES[type];
+export function renderEmail(type: TemplateType, vars: EmailVariables, override?: TemplateOverride): RenderedEmail {
+  const def = override ? { subjectTemplate: override.subject, paragraphs: paragraphsOf(override.body) } : EMAIL_TEMPLATES[type];
   const subject = substitute(def.subjectTemplate, vars);
   const text = def.paragraphs.map((p) => substitute(p, vars)).join("\n\n");
 

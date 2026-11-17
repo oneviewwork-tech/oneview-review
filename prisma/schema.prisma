@@ -192,6 +192,17 @@ enum TemplateType {
   C
 }
 
+/// HR's edited wording for a feedback email. No row = the built-in wording
+/// (src/domain/email/templates.ts). Body paragraphs are separated by a blank line.
+model EmailTemplate {
+  type          TemplateType @id
+  subject       String
+  body          String
+  updatedById   String?
+  updatedByName String?
+  updatedAt     DateTime     @updatedAt
+}
+
 enum SubmissionStatus {
   SUBMITTED
   NEEDS_REVISION
@@ -550,6 +561,7 @@ enum AuditAction {
   PERF_REMINDER_SENT
   PERF_SETTINGS_SAVED
   PEOPLE_SYNCED
+  EMAIL_TEMPLATE_SAVED
 }
 
 model AuditEvent {
