@@ -35,12 +35,20 @@ export async function photoUrlFor(reviewEmployeeId: string): Promise<string | un
   return key ? `/api/people-photo/${reviewEmployeeId}?v=${encodeURIComponent(key)}` : undefined;
 }
 
+/**
+ * Supabase's new secret keys (`sb_secret_…`) go in the `apikey` header and are
+ * not JWTs, so they must not be sent as a Bearer token; legacy service_role
+ * keys (JWTs, `eyJ…`) work in both.
+ */
+const storageHeaders = (key: string): Record<string, string> =>
+  key.startsWith("eyJ") ? { apikey: key, Authorization: `Bearer ${key}` } : { apikey: key };
+
 /** The photo's bytes: the thumbnail if there is one, else the original. */
 export async function fetchPeoplePhoto(key: string, size: "thumb" | "full"): Promise<{ body: ArrayBuffer; type: string } | null> {
   const base = process.env.SUPABASE_URL!.replace(/\/$/, "");
   const get = async (objectKey: string) => {
     const res = await fetch(`${base}/storage/v1/object/${BUCKET()}/${objectKey.split("/").map(encodeURIComponent).join("/")}`, {
-      headers: { Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}` },
+      headers: storageHeaders(process.env.SUPABASE_SERVICE_ROLE_KEY!),
       cache: "no-store",
     });
     if (!res.ok) return null;
