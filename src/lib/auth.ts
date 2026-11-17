@@ -6,6 +6,7 @@ import { authConfig } from "@/lib/auth.config";
 import { writeAuditEvent } from "@/lib/audit";
 import { findPeopleIdentity, initialReviewRole, PEOPLE_MANAGED } from "@/services/people/identity";
 import { accountSwitcherEnabled } from "@/lib/account-switcher";
+import { verifySsoTicket } from "@/lib/sso-token";
 
 const LOCKOUT_THRESHOLD = 5;
 const LOCKOUT_DURATION_MS = 15 * 60 * 1000;
@@ -128,6 +129,38 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           departmentId: user.departmentId,
           mustChangePassword: user.mustChangePassword,
         };
+      },
+    }),
+    // Handoff from ONEVIEW People: a short-lived ticket People signed for the
+    // person already signed in there (see src/lib/sso-token.ts and /sso).
+    Credentials({
+      id: "people-sso",
+      name: "ONEVIEW People",
+      credentials: { token: {} },
+      authorize: async (credentials) => {
+        const token = credentials?.token as string | undefined;
+        const check = token ? verifySsoTicket(token, process.env.REVIEW_SSO_SECRET ?? "") : null;
+        if (!check?.ok) return null;
+        const { ticket } = check;
+
+        // One use only: a ticket seen before (e.g. a copied link) is refused.
+        const seen = await prisma.auditEvent.findFirst({ where: { entityType: "SsoTicket", entityId: ticket.jti }, select: { id: true } });
+        if (seen) return null;
+        await writeAuditEvent(prisma, { entityType: "SsoTicket", entityId: ticket.jti, action: "LOGIN", actorUserId: null, actorEmail: ticket.email, metadata: { ticket: "used" } });
+
+        // People still decides: the account must exist, be active, and be the one the ticket names.
+        const identity = await findPeopleIdentity(ticket.email);
+        if (!identity || !identity.isActive || identity.peopleUserId !== ticket.sub) return null;
+
+        const user = await prisma.user.upsert({
+          where: { email: identity.email },
+          create: { email: identity.email, name: identity.name, role: initialReviewRole(identity), passwordHash: PEOPLE_MANAGED, mustChangePassword: false },
+          update: { name: identity.name, mustChangePassword: false },
+        });
+        if (!user.isActive || (user.lockedUntil && user.lockedUntil > new Date())) return null;
+
+        await writeAuditEvent(prisma, { entityType: "User", entityId: user.id, action: "LOGIN", actorUserId: user.id, actorEmail: user.email, metadata: { via: "people-sso" } });
+        return { id: user.id, email: user.email, name: user.name, role: user.role, departmentId: user.departmentId, mustChangePassword: false };
       },
     }),
     // Test-only: sign in as any active Review user without a password.

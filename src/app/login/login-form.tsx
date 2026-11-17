@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { authenticate } from "./actions";
 
 const FIELD =
-  "h-12 w-full rounded-lg border border-input bg-card pl-11 pr-3 text-sm shadow-xs transition-ui " +
+  "h-12 w-full rounded-xl border border-white bg-white/80 pl-11 pr-3 text-sm shadow-xs ring-1 ring-black/[0.06] transition-ui " +
   "placeholder:text-muted-foreground focus-visible:outline-none focus-visible:border-brand " +
   "focus-visible:ring-2 focus-visible:ring-brand/25";
 
@@ -83,7 +83,12 @@ export function LoginForm() {
         </p>
       )}
 
-      <Button type="submit" size="lg" className="group w-full" loading={isPending}>
+      <Button
+        type="submit"
+        size="lg"
+        className="group w-full rounded-xl border-0 bg-gradient-to-r from-brand to-chart-pink shadow-[0_10px_24px_-10px_rgba(91,61,245,0.7)] hover:opacity-95"
+        loading={isPending}
+      >
         {isPending ? "Signing in…" : "Sign in"}
         {!isPending && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
       </Button>
