@@ -2,23 +2,26 @@
  * Social Media department history from the 5 role workbooks Nabil sent
  * ("KPI KRA SM WRITERS", "KRA KPI SM Production", "KRA KPI SM MANAGERS",
  * "KPI KRA - LEADS", "KPI KRA  Design TEAM"). This is the department's
- * first-ever recorded history — no PerfReview rows exist for it yet.
+ * first-ever recorded history — no PerfReview/PerfScore rows exist for it
+ * yet.
  *
  * Layout (shared by all 5, header row position varies by +0/+1): metadata
  * columns (KRA/KPI/Metric, or Category/KRA/KPI/Metric for LEADS) then one
- * 8-column block per person = 4 weeks x 2 columns (a raw KPI score column,
- * and a column that holds that KPI's weighted contribution toward its KRA's
- * point allocation - the same value repeats down every KPI row of one KRA
- * group). Rows: KPI rows, a "Total" row (pre-deduction KRA total), then a
- * Critical/penalty KPI section, then one or two more "Total" rows (the
- * post-deduction total, when a penalty applied that week). Rather than
- * re-deriving deductions from the penalty rows (their layout doesn't hold
- * one value per category - every category row repeats one combined figure,
- * which would double count), each week's score is the LAST non-empty Total
- * row's value in that week's first column: the post-deduction total when
- * present, else the pre-deduction one. The month's score is the average of
- * its populated weeks (a sparse week, e.g. a person who joined mid-month,
- * is just left out of the average rather than counted as 0).
+ * 8-column block per person = 4 weeks x 2 columns (a raw per-KPI score, and
+ * a column holding that KPI's weighted contribution toward its KRA's point
+ * allocation - the same value repeats down every KPI row of one KRA group).
+ * The raw score (the first column of each week's pair) is what gets stored
+ * as that week's PerfScore for the matching KPI - matched to the person's
+ * own scorecard version by KPI name, not by position, since a sheet's KPI
+ * order doesn't always match the scorecard's. Rows after the KPI rows: a
+ * "Total" row (pre-deduction KRA total), a Critical/penalty KPI section,
+ * then one or two more "Total" rows (the post-deduction total, when a
+ * penalty applied that week). The month's PerfReview.finalScore is the
+ * average of the LAST non-empty Total row's value per populated week (the
+ * post-deduction total when present, else the pre-deduction one) - not
+ * re-derived from the penalty rows, whose layout repeats one combined
+ * figure per category rather than one value per category, which would
+ * double count.
  *
  * Matches people by the sheet's first name against the Social Media /
  * Marketing roster in People, reusing each existing Review assignment's
@@ -97,7 +100,10 @@ const sig = (k: { kra: string; name: string; max: number }[]) => k.map((x) => `$
 interface Block { name: string; firstCol: number }
 interface MonthPlan {
   file: string; sheet: string; period: Date; personFirstName: string; firstCol: number;
-  kpis: { kra: string; name: string; max: number }[]; weekScores: number[];
+  /** One per populated week: that week's per-KPI raw scores, keyed by keyOf(kpiName). */
+  weeks: Map<string, number>[];
+  /** That week's Total-row value (post-deduction when present), parallel to `weeks`. */
+  weekTotals: number[];
 }
 
 function findHeaderRow(ws: ExcelJS.Worksheet): number {
@@ -155,22 +161,26 @@ async function parseFile(file: string, months: [string, Date][]) {
       const first = keyOf(b.name).split(" ")[0];
       if (UNRESOLVED.has(first)) continue;
       if (first === "fairu" && /SM MANAGERS/i.test(file)) continue; // irregular columns here; use LEADS instead
-      const weekScores: number[] = [];
+      const weeks: Map<string, number>[] = [];
+      const weekTotals: number[] = [];
       for (let w = 0; w < 4; w++) {
         const col = b.firstCol + w * 2;
-        let v: number | null = null;
+        let total: number | null = null;
         for (let i = totalRows.length - 1; i >= 0; i--) {
           const got = num(text(ws.getRow(totalRows[i]).getCell(col)));
-          if (got != null) { v = got; break; }
+          if (got != null) { total = got; break; }
         }
-        if (v != null) weekScores.push(v);
+        if (total == null) continue; // blank week
+        const perKpi = new Map<string, number>();
+        for (const k of kpis) {
+          const v = num(text(ws.getRow(k.row).getCell(col)));
+          if (v != null) perKpi.set(keyOf(k.name), v);
+        }
+        weeks.push(perKpi);
+        weekTotals.push(total);
       }
-      if (!weekScores.length) continue; // blank block for this month
-      plans.push({
-        file, sheet: sheetName, period, personFirstName: first, firstCol: b.firstCol,
-        kpis: kpis.map((k) => ({ kra: k.kra, name: k.name, max: 0 })), // maxima filled from the person's own Review scorecard below
-        weekScores,
-      });
+      if (!weeks.length) continue; // blank block for this month
+      plans.push({ file, sheet: sheetName, period, personFirstName: first, firstCol: b.firstCol, weeks, weekTotals });
     }
   }
   return plans;
@@ -198,7 +208,7 @@ async function main() {
       perfAssignment: {
         select: {
           templateId: true, scorerUserId: true,
-          template: { select: { name: true, versions: { select: { id: true, effectiveFrom: true, kras: { select: { name: true, kpis: { select: { name: true, maxPoints: true } } } } } } } },
+          template: { select: { name: true, versions: { select: { id: true, effectiveFrom: true, kras: { select: { name: true, kpis: { select: { id: true, name: true, maxPoints: true } } } } } } } },
         },
       },
     },
@@ -222,7 +232,7 @@ async function main() {
     }
   }
 
-  const ready: { e: (typeof employees)[number]; period: Date; total: number; weeks: number; file: string }[] = [];
+  const ready: { e: (typeof employees)[number]; period: Date; total: number; weeks: Map<string, number>[]; file: string }[] = [];
   const unresolved = new Set<string>();
   const ambiguous = new Set<string>();
   const seenThisRun = new Set<string>(); // employeeId|yyyy-mm already queued, so the same person/month from two files isn't recorded twice
@@ -237,8 +247,8 @@ async function main() {
     const key = `${e.id}|${ym}`;
     if (done.has(key) || seenThisRun.has(key)) continue;
     seenThisRun.add(key);
-    const avg = Math.round((p.weekScores.reduce((s, v) => s + v, 0) / p.weekScores.length) * 100) / 100;
-    ready.push({ e, period: p.period, total: avg, weeks: p.weekScores.length, file: p.file.split("/").pop()! });
+    const avg = Math.round((p.weekTotals.reduce((s, v) => s + v, 0) / p.weekTotals.length) * 100) / 100;
+    ready.push({ e, period: p.period, total: avg, weeks: p.weeks, file: p.file.split("/").pop()! });
   }
 
   console.log("\n--- Resolved months ready to record ---");
@@ -246,7 +256,7 @@ async function main() {
   for (const r of ready) { const k = r.e.name; if (!byPerson.has(k)) byPerson.set(k, []); byPerson.get(k)!.push(r); }
   for (const [name, rows] of byPerson) {
     rows.sort((a, b) => +a.period - +b.period);
-    console.log(`  ${name.padEnd(22)} ${rows.map((r) => `${r.period.toISOString().slice(0, 7)}=${r.total}(${r.weeks}wk)`).join("  ")}`);
+    console.log(`  ${name.padEnd(22)} ${rows.map((r) => `${r.period.toISOString().slice(0, 7)}=${r.total}(${r.weeks.length}wk)`).join("  ")}`);
   }
 
   if (unresolved.size) console.log("\n--- No People match (left out) ---\n  " + [...unresolved].join(", "));
@@ -259,13 +269,21 @@ async function main() {
     const version = r.e.perfAssignment!.template.versions.filter((v) => +v.effectiveFrom <= +r.period).sort((a, b) => +b.effectiveFrom - +a.effectiveFrom)[0];
     if (!version) { console.log(`  ! ${r.e.name} ${r.period.toISOString().slice(0, 7)}: no scorecard version in force; skipped`); continue; }
     const maxScore = version.kras.reduce((s, k) => s + k.kpis.reduce((s2, x) => s2 + x.maxPoints, 0), 0);
+    const kpiId = new Map(version.kras.flatMap((k) => k.kpis).map((k) => [keyOf(k.name), k.id]));
     const scorer = r.e.perfAssignment!.scorerUserId;
     const now = new Date();
+    const scoreRows: Prisma.PerfScoreCreateManyInput[] = r.weeks.flatMap((weekKpis, i) =>
+      [...weekKpis.entries()].flatMap(([key, value]) => {
+        const id = kpiId.get(key);
+        return id ? [{ employeeId: r.e.id, kpiId: id, period: r.period, week: i + 1, value, remark: "Imported from Social Media sheet", enteredById: scorer, enteredByName: "Imported from SM sheet" }] : [];
+      }),
+    );
     await db.$transaction(async (tx) => {
-      await tx.perfReview.create({ data: { employeeId: r.e.id, period: r.period, status: "CONFIRMED", submittedById: scorer, submittedByName: "Imported from SM sheet", submittedAt: now, decidedById: scorer, decidedByName: "Imported from SM sheet", decidedAt: now, finalScore: r.total, maxScore, weeksScored: r.weeks } });
-      await writeAuditEvent(tx, { entityType: "PerfReview", entityId: r.e.id, action: "PERF_SCORE_SAVED", actorUserId: null, actorEmail: null, after: { finalScore: r.total }, metadata: { source: "sm-history-import", period: r.period.toISOString().slice(0, 7), file: r.file } });
+      await tx.perfScore.createMany({ data: scoreRows, skipDuplicates: true });
+      await tx.perfReview.create({ data: { employeeId: r.e.id, period: r.period, status: "CONFIRMED", submittedById: scorer, submittedByName: "Imported from SM sheet", submittedAt: now, decidedById: scorer, decidedByName: "Imported from SM sheet", decidedAt: now, finalScore: r.total, maxScore, weeksScored: r.weeks.length } });
+      await writeAuditEvent(tx, { entityType: "PerfReview", entityId: r.e.id, action: "PERF_SCORE_SAVED", actorUserId: null, actorEmail: null, after: { finalScore: r.total, scores: scoreRows.length }, metadata: { source: "sm-history-import", period: r.period.toISOString().slice(0, 7), file: r.file } });
     });
-    console.log(`  recorded ${r.period.toISOString().slice(0, 7)} ${r.e.name} = ${r.total}`);
+    console.log(`  recorded ${r.period.toISOString().slice(0, 7)} ${r.e.name} = ${r.total} (${scoreRows.length} KPI scores across ${r.weeks.length} weeks)`);
   }
   console.log("\nDone.");
 }
