@@ -54,13 +54,28 @@ export default async function PersonPerformancePage({
       select: { name: true, designation: true, department: { select: { name: true } } },
     });
     if (!person) notFound();
+    // Their own page reads as theirs; a manager or HR gets the setup hint.
+    const ownPage = access.selfEmployeeId === id;
+    const empty = ownPage ? (
+      <EmptyState
+        title="Your scorecard isn't set up yet"
+        description="Once HR assigns your scorecard, what you're measured on and your monthly results will appear here."
+      />
+    ) : (
+      <EmptyState title="No scorecard assigned" description="HR can assign a scorecard and a scorer under Assignments." />
+    );
     return (
       <div className="animate-fade-up">
-        <PageHeader title={person.name} description={`${person.designation ?? "-"} · ${person.department.name}`} />
-        <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <EmptyState title="No scorecard assigned" description="HR can assign a scorecard and a scorer under Assignments." />
-          <FeedbackCard items={feedback} />
-        </div>
+        <PageHeader title={ownPage ? `Welcome, ${person.name.split(/\s+/)[0]}` : person.name} description={`${person.designation ?? "-"} · ${person.department.name}`} />
+        {/* The side column only when there is feedback to put in it, so the page never has an empty strip. */}
+        {feedback.length > 0 ? (
+          <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+            {empty}
+            <FeedbackCard items={feedback} />
+          </div>
+        ) : (
+          <div className="mt-5">{empty}</div>
+        )}
       </div>
     );
   }
