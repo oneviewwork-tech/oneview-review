@@ -65,7 +65,8 @@ async function loadPeopleRows(SYNC_ORGS: string[]): Promise<PeopleRow[]> {
     departmentCode: r.departmentCode,
     designation: r.designation,
     manager: r.mgrFirst ? `${r.mgrFirst} ${r.mgrLast ?? ""}`.trim() : null,
-    active: r.status === "ACTIVE" && !r.archivedAt,
+    // Still working here: on notice counts (they are reviewed until they leave).
+    active: (r.status === "ACTIVE" || r.status === "ON_NOTICE") && !r.archivedAt,
   })).filter((p) => !NOT_EMPLOYEES.has(p.name.toLowerCase()));
 }
 

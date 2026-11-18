@@ -72,7 +72,8 @@ export async function loadPeople(db: PrismaClient): Promise<PeopleEmp[]> {
     officialEmail: r.officialEmail,
     loginEmail: r.loginEmail,
     loginActive: !!r.loginActive,
-    active: r.status === "ACTIVE" && !r.archivedAt,
+    // Still working here: on notice counts (they are reviewed until they leave).
+    active: (r.status === "ACTIVE" || r.status === "ON_NOTICE") && !r.archivedAt,
     orgCode: r.orgCode,
     department: r.department,
     departmentCode: r.departmentCode,
