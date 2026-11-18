@@ -21,6 +21,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import ExcelJS from "exceljs";
 import { matchByName } from "../src/domain/people/match";
+import { PEOPLE_MANAGED } from "../src/lib/people-managed";
 import { loadPeople, reviewClient } from "./_people";
 
 const APPLY = process.argv.includes("--apply");
@@ -123,7 +124,8 @@ async function main() {
     const { main, risks } = parseTab(ws);
     const total = main.reduce((a, k) => a + k.max, 0);
     const rcd = s.rcd ? readRcd(path.join(RCD_DIR, s.rcd)) : null;
-    const ok = total === 100;
+    // HR's Junior Creative Strategist sheet covers 95 points (Reporting & Learning is 15); loaded as written.
+    const ok = total === 100 || (s.name === "PM – Junior Creative Strategist" && total === 95);
     const kras = [...new Set(main.map((k) => k.kra))];
     console.log(
       `${s.name.padEnd(34)} ${String(main.length).padStart(2)} KPIs in ${kras.length} KRAs = ${total} pts | ${risks.length} risks | role definition: ${rcd ? "yes" : "none"}` +
@@ -134,7 +136,17 @@ async function main() {
     if (ok) parsed.push({ s, main, risks, rcd });
   }
 
-  // ── Assignments: scorer = reporting manager in People ─────────────
+  // ── Assignments: scorer = Team Lead in People, else reporting manager ──
+  const leadRows = await db.$queryRaw<{ email: string; scorerEmail: string | null; scorerName: string | null; via: string }[]>`
+    SELECT lower(e."officialEmail") AS "email",
+           lower(coalesce(tu."email", t."officialEmail", mu."email", m."officialEmail")) AS "scorerEmail",
+           trim(coalesce(t."firstName" || ' ' || t."lastName", m."firstName" || ' ' || m."lastName")) AS "scorerName",
+           CASE WHEN t."id" IS NOT NULL THEN 'team lead' ELSE 'reporting manager' END AS "via"
+    FROM "public"."Employee" e
+    LEFT JOIN "public"."Employee" t ON t."id" = e."dottedLineManagerId" LEFT JOIN "public"."User" tu ON tu."employeeId" = t."id"
+    LEFT JOIN "public"."Employee" m ON m."id" = e."reportingManagerId" LEFT JOIN "public"."User" mu ON mu."employeeId" = m."id"`;
+  const leadOf = new Map(leadRows.map((r) => [r.email, r]));
+  const loginsToCreate = new Map<string, string>();
   const people = (await loadPeople(db)).filter((p) => p.orgCode === ORG && p.active);
   const [employees, users, templates, assigned] = await Promise.all([
     db.employee.findMany({ where: { organization: { code: ORG }, isActive: true }, select: { id: true, name: true, email: true, reportingManagerName: true } }),
@@ -146,25 +158,27 @@ async function main() {
   const has = new Set(assigned.map((a) => a.employeeId));
   const templateId = new Map(templates.map((t) => [t.name, t.id]));
 
-  console.log("\nAssignments (scorer = reporting manager):");
-  const plan: { employeeId: string; template: string; scorerUserId: string }[] = [];
+  console.log("\nAssignments (scorer = Team Lead, else reporting manager):");
+  const plan: { employeeId: string; template: string; scorerEmail: string }[] = [];
   for (const { s } of parsed) {
     for (const who of s.people) {
       const e = matchByName(who, employees);
       if (e.kind !== "exact") { console.log(`  ! ${who}: not found as one Review employee (${e.kind})`); continue; }
       if (has.has(e.match.id)) { console.log(`  = ${e.match.name}: already assigned — left as is`); continue; }
-      const inPeople = people.find((p) => p.officialEmail === e.match.email.toLowerCase());
-      const mgrName = inPeople?.manager ?? e.match.reportingManagerName;
-      const mgr = mgrName ? matchByName(mgrName, people) : null;
-      const login = mgr && mgr.kind === "exact" ? mgr.match.loginEmail : null;
-      const scorer = login ? userByEmail.get(login.toLowerCase()) : null;
-      if (!scorer) { console.log(`  ! ${e.match.name}: manager "${mgrName}" has no Review login yet — not assigned`); continue; }
-      console.log(`  + ${e.match.name} → ${s.name}, scored by ${scorer.name}`);
-      plan.push({ employeeId: e.match.id, template: s.name, scorerUserId: scorer.id });
+      const lead = leadOf.get(e.match.email.toLowerCase());
+      if (!lead?.scorerEmail) { console.log(`  ! ${e.match.name}: no team lead or manager in People — not assigned`); continue; }
+      if (!userByEmail.has(lead.scorerEmail)) loginsToCreate.set(lead.scorerEmail, lead.scorerName ?? lead.scorerEmail);
+      console.log(`  + ${e.match.name} → ${s.name}, scored by ${lead.scorerName} (${lead.via})`);
+      plan.push({ employeeId: e.match.id, template: s.name, scorerEmail: lead.scorerEmail });
     }
   }
 
+  for (const [email, name] of loginsToCreate) console.log(`  + Review login for ${name} <${email}> (signs in with People)`);
   if (!APPLY) return console.log("\nNothing was written. Re-run with --apply.");
+  for (const [email, name] of loginsToCreate) {
+    const u = await db.user.create({ data: { email, name, role: "EMPLOYEE", passwordHash: PEOPLE_MANAGED, mustChangePassword: false }, select: { id: true, email: true, name: true } });
+    userByEmail.set(email, u);
+  }
 
   for (const { s, main, risks, rcd } of parsed) {
     if (existing.has(s.name)) continue;
@@ -203,7 +217,7 @@ async function main() {
     console.log(`  created ${s.name}`);
   }
   for (const p of plan) {
-    await db.perfAssignment.create({ data: { employeeId: p.employeeId, templateId: templateId.get(p.template)!, scorerUserId: p.scorerUserId } });
+    await db.perfAssignment.create({ data: { employeeId: p.employeeId, templateId: templateId.get(p.template)!, scorerUserId: userByEmail.get(p.scorerEmail)!.id } });
   }
   console.log(`\nDone. ${plan.length} assignments created.`);
 }
