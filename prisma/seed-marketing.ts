@@ -136,7 +136,7 @@ async function main() {
            trim(coalesce(t."firstName" || ' ' || t."lastName", m."firstName" || ' ' || m."lastName")) AS "scorerName",
            CASE WHEN t."id" IS NOT NULL THEN 'team lead' ELSE 'reporting manager' END AS "via"
     FROM "public"."Employee" e
-    JOIN "public"."Organization" o ON o."id" = e."organizationId" AND o."code" = 'HARISCO'
+    JOIN "public"."Organization" o ON o."id" = e."organizationId" AND o."code" IN ('HARISCO', 'HACA')
     LEFT JOIN "public"."Department" dep ON dep."id" = e."departmentId"
     LEFT JOIN "public"."Employee" t ON t."id" = e."dottedLineManagerId" LEFT JOIN "public"."User" tu ON tu."employeeId" = t."id"
     LEFT JOIN "public"."Employee" m ON m."id" = e."reportingManagerId" LEFT JOIN "public"."User" mu ON mu."employeeId" = m."id"
@@ -151,7 +151,10 @@ async function main() {
   const has = new Set(assigned.map((a) => a.employeeId));
   const hasOct = new Set(reviews.map((r) => r.employeeId));
   /** One person by first name, preferring People's Marketing department. */
-  const find = (first: string) => {
+  /** Spellings that differ between the sheet and People. */
+  const ALIAS: Record<string, string> = { Adinanth: "Adinath" };
+  const find = (sheetName: string) => {
+    const first = ALIAS[sheetName] ?? sheetName;
     const all = ppl.filter((p) => p.name.toLowerCase().split(" ").some((part, i) => (i === 0 ? p.name.toLowerCase().startsWith(first.toLowerCase()) : part === first.toLowerCase())));
     const mkt = all.filter((p) => p.dept === "Marketing");
     return mkt.length === 1 ? mkt[0] : all.length === 1 ? all[0] : null;
