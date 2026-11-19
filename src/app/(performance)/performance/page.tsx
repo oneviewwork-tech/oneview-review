@@ -96,6 +96,22 @@ export default async function PerformanceDashboardPage({
   // Everyone else sees only their own team, so the filter is HR/Admin's.
   const scope = access.isStaff ? resolveScope(organizations, params) : {};
 
+  // Someone who scores at least one person (so not selfOnly) still has their
+  // own scorecard to check, but the dashboard's own `period` defaults to the
+  // current month, which usually isn't confirmed yet - that would make "My
+  // own result" read as "not scored" even when last month's real, confirmed
+  // score is sitting right there. Default their own panel to their latest
+  // confirmed month instead, same as the selfOnly redirect above; an
+  // explicit ?period= (so they can still pick August or September) applies
+  // to both the team view and their own panel together.
+  const myPeriod =
+    !params.period && access.selfEmployeeId
+      ? await prisma.perfReview
+          .findFirst({ where: { employeeId: access.selfEmployeeId, status: "CONFIRMED" }, orderBy: { period: "desc" }, select: { period: true } })
+          .then((r) => r?.period ?? period)
+      : period;
+  const myPeriodValue = formatPeriodValue(myPeriod);
+
   // Four independent reads, asked together: this month, last month (for the
   // change), the KRA picture, and the viewer's own scorecard.
   // HR/Admin also get the month-by-month trend (two more months back) and
@@ -116,7 +132,7 @@ export default async function PerformanceDashboardPage({
     confirmed(getTeamRows(visibleIds, period, scope)),
     confirmed(getTeamRows(visibleIds, prevPeriod, scope)),
     getKraRollup(visibleIds, period, scope),
-    access.selfEmployeeId ? getPersonPerformance(access.selfEmployeeId, period) : Promise.resolve(null),
+    access.selfEmployeeId ? getPersonPerformance(access.selfEmployeeId, myPeriod) : Promise.resolve(null),
     getGradeSettings(),
     Promise.all(extra.map((p) => confirmed(getTeamRows(visibleIds, p, scope)))),
     // Week-by-week scoring for the month in view.
@@ -428,12 +444,16 @@ export default async function PerformanceDashboardPage({
       {mine && mine.version && (
         <Panel className="mt-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-metadata">My own result · {mine.template.name}</p>
+            <p className="text-metadata">
+              My own result · {mine.template.name}
+              {/* Only shown when this panel's month differs from the team dashboard above, so it never reads as a mismatch. */}
+              {myPeriodValue !== periodValue && <> · {formatReviewPeriod(myPeriod)}</>}
+            </p>
             {/* Your own number is never shown, only the band — and only once the month is confirmed. */}
             {(() => {
               const final = mine.review?.finalScore ?? mine.month.average;
               if (mine.reviewState !== "CONFIRMED" || final == null || mine.maxTotal === 0) {
-                return <p className="mt-1.5 text-sm text-muted-foreground">Shown once {formatReviewPeriod(period)} is confirmed.</p>;
+                return <p className="mt-1.5 text-sm text-muted-foreground">Shown once {formatReviewPeriod(myPeriod)} is confirmed.</p>;
               }
               const band = bandOf((final / mine.maxTotal) * 100, settings);
               return (
@@ -448,7 +468,7 @@ export default async function PerformanceDashboardPage({
           <div className="flex items-center gap-3">
             <ReviewStatusBadge state={mine.reviewState} />
             <Link
-              href={`/performance/people/${mine.employee.id}?period=${periodValue}`}
+              href={`/performance/people/${mine.employee.id}?period=${myPeriodValue}`}
               className={buttonVariants({ variant: "outline", size: "sm", className: "rounded-full" })}
             >
               View my scorecard
