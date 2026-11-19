@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ArrowLeft,
   Menu,
   X,
   type LucideIcon,
@@ -115,6 +116,7 @@ export function AppSidebarLayout({
   bell,
   brand,
   orgSwitch,
+  peopleUrl,
   children,
 }: {
   sections: NavSection[];
@@ -133,6 +135,8 @@ export function AppSidebarLayout({
   brand: Brand;
   /** People who can see several organizations pick one here; it holds on every page. */
   orgSwitch?: { options: { id: string; name: string }[]; selected: string | null };
+  /** ONEVIEW People's address: a "Back to People" link at the top of the sidebar. Hidden when not set. */
+  peopleUrl?: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -239,7 +243,23 @@ export function AppSidebarLayout({
   // ── The panel itself (desktop rail, or the phone drawer when wide is forced) ──
   const panel = (wide: boolean, onClose?: () => void) => (
     <div className="sidebar-aurora relative flex h-full flex-col overflow-hidden rounded-[24px]">
-      <div className={cn("flex shrink-0 items-center gap-2 pt-5", wide ? "px-5" : "flex-col px-2")}>
+      {peopleUrl && (
+        <div className={cn("shrink-0 pt-4", wide ? "px-4" : "flex justify-center px-2")}>
+          <a
+            href={peopleUrl}
+            aria-label="Back to ONEVIEW People"
+            title="Back to ONEVIEW People"
+            className={cn(
+              "group flex items-center gap-2 rounded-full border border-border bg-white/80 text-[13px] font-medium text-muted-foreground shadow-[0_2px_6px_rgba(15,23,42,0.08)] transition-colors hover:bg-white hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
+              wide ? "w-full px-3 py-2" : "size-10 justify-center",
+            )}
+          >
+            <ArrowLeft className="size-4 shrink-0 transition-transform group-hover:-translate-x-0.5" />
+            {wide && <span className="truncate">Back to People</span>}
+          </a>
+        </div>
+      )}
+      <div className={cn("flex shrink-0 items-center gap-2", peopleUrl ? "pt-4" : "pt-5", wide ? "px-5" : "flex-col px-2")}>
         <Link href="/" aria-label="ONEVIEW Review home" className="min-w-0">
           {wide ? <BrandLogo brand={brand} stacked /> : <span className="flex size-10 items-center justify-center rounded-xl bg-white text-[13px] font-black text-ink shadow-sm ring-1 ring-black/5">R</span>}
         </Link>

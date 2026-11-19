@@ -118,6 +118,7 @@ export async function AppShell({
           userPhoto={userPhoto}
           badges={badges}
           signOut={signOutAction}
+          peopleUrl={process.env.PEOPLE_APP_URL?.trim().replace(/\/+$/, "") || undefined}
           switcher={<Switcher />}
           bell={<Suspense fallback={null}><Bell userId={userId} /></Suspense>}
         >
