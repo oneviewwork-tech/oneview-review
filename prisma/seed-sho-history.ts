@@ -31,6 +31,9 @@ const db = reviewClient();
 const m = (mm: number) => new Date(Date.UTC(2026, mm, 1));
 
 const SOURCES: { file: string; sheet: string; template: string; period: Date }[] = [
+  { file: "C:/Users/ASUS/Downloads/_Team SHO - Performance Metrics  - Sept.xlsx", sheet: "SHO", template: "SHO", period: m(8) },
+  { file: "C:/Users/ASUS/Downloads/_Team SHO - Performance Metrics  - Sept.xlsx", sheet: "INTERNSHIP", template: "Internship Coordinator", period: m(8) },
+  { file: "C:/Users/ASUS/Downloads/_Team SHO - Performance Metrics  - Sept.xlsx", sheet: "SEM", template: "SEM", period: m(8) },
   { file: "C:/Users/ASUS/Downloads/Team SHO - Performance Metrics  - Aug.xlsx", sheet: "SHO", template: "SHO", period: m(7) },
   { file: "C:/Users/ASUS/Downloads/Team SHO - Performance Metrics  - Aug.xlsx", sheet: "INTERNSHIP", template: "Internship Coordinator", period: m(7) },
   { file: "C:/Users/ASUS/Downloads/Team SHO - Performance Metrics  - Aug.xlsx", sheet: "SEM", template: "SEM", period: m(7) },
@@ -50,6 +53,8 @@ const ALIAS: Record<string, string> = {
   swathi: "swathi@harisandcoacademy.com",
   shahana: "shahana@harisandcoacademy.com",
   nidha: "nidhap@harisandcoacademy.com",
+  fathima: "fathimafidamv@harisandcoacademy.com", // September's "FATHIMA FIDHA" column - already has an SHO assignment
+  abhishna: "abhishnacp@harisandcoacademy.com", // September's "ABHISHNA" column, a different Review employee from Tech School's Abishna CK - already has an SHO assignment
 };
 const UNRESOLVED = new Set(["anupriya"]);
 
@@ -110,14 +115,6 @@ async function main() {
       for (let r = 3; r <= ws.rowCount; r++) { if (!text(ws.getRow(r).getCell(2))) { firstBlankRow = r; break; } }
     }
     if (firstBlankRow < 0) { console.log(`  ! ${src.sheet} in ${src.file.split("/").pop()}: no total row found; skipped`); continue; }
-    // That row, or one right after it, carries the week totals - take the
-    // last candidate row (within the next few rows) that has any numeric
-    // value in column 4 (the first person's first week), since some sheets
-    // have an empty "Total" label row before the one with real numbers.
-    let totalRow = firstBlankRow;
-    for (let r = firstBlankRow; r <= Math.min(ws.rowCount, firstBlankRow + 3); r++) {
-      if (num(text(ws.getRow(r).getCell(4))) != null) totalRow = r;
-    }
 
     for (const b of findBlocks(ws)) {
       const nameOnly = b.name.includes(":") ? b.name.split(":")[1] : b.name; // "Employee Name : Swathi(June)" -> "Swathi(June)"
@@ -126,7 +123,17 @@ async function main() {
       const weeks: Map<string, number>[] = [];
       const weekTotals: number[] = [];
       for (const col of b.weekCols) {
-        const total = num(text(ws.getRow(totalRow).getCell(col)));
+        // The total row isn't always the same for every person's block in
+        // a sheet (a stray empty "Total" label row sits before the real
+        // numbers for some), and the exact week column can shift by one
+        // when "Remark" columns interleave inconsistently - search this
+        // person's own week column (and the one right after it, in case
+        // the total landed in the Remark slot instead) across a few rows
+        // from firstBlankRow for the first real number.
+        let total: number | null = null;
+        for (let r = firstBlankRow; r <= Math.min(ws.rowCount, firstBlankRow + 3) && total == null; r++) {
+          total = num(text(ws.getRow(r).getCell(col))) ?? num(text(ws.getRow(r).getCell(col + 1)));
+        }
         if (total == null) continue;
         const perKpi = new Map<string, number>();
         for (const k of kpis) {
