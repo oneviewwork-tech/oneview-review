@@ -9,6 +9,7 @@ import { Avatar } from "@/components/shared/avatar";
 import { ActiveBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { UserDialog, type AssignableRole } from "@/components/admin/user-dialog";
+import { SearchField } from "@/components/shared/search-field";
 import { ToggleActiveButton } from "@/components/admin/toggle-active-button";
 import { RoleTabs } from "@/components/admin/roles/role-tabs";
 import { RoleDialog } from "@/components/admin/roles/role-dialog";
@@ -27,7 +28,13 @@ import { cn } from "@/lib/utils";
  * tabs — Roles, Permissions (the matrix), User accounts. What you can change
  * is limited by your own role: nobody hands out more than they have.
  */
-export default async function UsersAndRolesPage() {
+export default async function UsersAndRolesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q: rawQ } = await searchParams;
+  const q = rawQ?.trim() ?? "";
   const profile = await requirePermission("USERS_MANAGE", "ROLES_MANAGE");
   const canManageRoles = profile.can("ROLES_MANAGE");
   const canManageUsers = profile.can("USERS_MANAGE");
@@ -53,6 +60,14 @@ export default async function UsersAndRolesPage() {
   ]);
   const people = await peopleAccountsByEmail(users.map((u) => u.email));
   const noAccount = users.filter((u) => u.isActive && !people.get(u.email.toLowerCase())?.isActive);
+
+  const matchesQuery = (u: (typeof users)[number]) => {
+    if (!q) return true;
+    const needle = q.toLowerCase();
+    const roleName = u.reviewRole?.name ?? systemRoleFor(u.role).name;
+    return u.name.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle) || roleName.toLowerCase().includes(needle);
+  };
+  const filteredUsers = users.filter(matchesQuery);
 
   const assignable: AssignableRole[] = roles
     .filter((r) => mayGrant(profile, r))
@@ -200,84 +215,91 @@ export default async function UsersAndRolesPage() {
     users.length === 0 ? (
       <EmptyState title="No users yet" description="Add someone from People to give them a role in Review." />
     ) : (
-      <Card className="overflow-hidden p-0">
-        <div className="overflow-auto">
-          <table className="data-table min-w-[900px]">
-            <thead>
-              <tr>
-                <th>User</th>
-                <th>Role</th>
-                <th>Scope</th>
-                <th>In People</th>
-                <th>Status</th>
-                <th className="text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => {
-                const account = people.get(u.email.toLowerCase());
-                const fallback = systemRoleFor(u.role);
-                const current = u.reviewRole ?? { isSuperAdmin: fallback.isSuperAdmin, permissions: fallback.permissions as ReviewPermission[], homeOrganizationId: null };
-                const manageable = canManageUsers && mayGrant(profile, current);
-                const roleName = u.reviewRole?.name ?? fallback.name;
-                return (
-                  <tr key={u.id}>
-                    <td>
-                      <div className="flex items-center gap-2.5">
-                        <Avatar name={u.name} />
-                        <div className="min-w-0 leading-tight">
-                          <p className="truncate font-medium text-foreground">{u.name}</p>
-                          <p className="truncate text-metadata">{u.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <Badge variant={current.isSuperAdmin ? "neutral" : "brand"}>{roleName}</Badge>
-                    </td>
-                    <td className="text-muted-foreground">
-                      {u.department ? `${u.department.organization.name} · ${u.department.name}` : "-"}
-                    </td>
-                    <td className="text-muted-foreground">
-                      {account?.isActive ? (
-                        <span className="leading-tight">
-                          <span className="block text-foreground">{account.peopleRole}</span>
-                          {account.designation && <span className="block text-xs">{account.designation}</span>}
-                        </span>
-                      ) : (
-                        <span className="text-warning">No account</span>
-                      )}
-                    </td>
-                    <td>
-                      <ActiveBadge active={u.isActive} />
-                    </td>
-                    <td>
-                      <div className="row-actions flex justify-end gap-1">
-                        {manageable && (
-                          <>
-                            <UserDialog
-                              organizations={organizations}
-                              roles={assignable}
-                              user={{
-                                id: u.id,
-                                name: u.name,
-                                email: u.email,
-                                roleId: u.reviewRoleId,
-                                departmentId: u.department?.id ?? null,
-                                organizationId: u.department?.organization.id ?? null,
-                              }}
-                            />
-                            <ToggleActiveButton id={u.id} isActive={u.isActive} action={toggleUserActive} />
-                          </>
-                        )}
-                      </div>
-                    </td>
+      <div className="space-y-3">
+        <SearchField className="w-full sm:w-72" placeholder="Search name, email, or role…" />
+        {filteredUsers.length === 0 ? (
+          <EmptyState title={`No one matches "${q}"`} description="Try a different name, email, or role." />
+        ) : (
+          <Card className="overflow-hidden p-0">
+            <div className="overflow-auto">
+              <table className="data-table min-w-[900px]">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Scope</th>
+                    <th>In People</th>
+                    <th>Status</th>
+                    <th className="text-right">Actions</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                </thead>
+                <tbody>
+                  {filteredUsers.map((u) => {
+                    const account = people.get(u.email.toLowerCase());
+                    const fallback = systemRoleFor(u.role);
+                    const current = u.reviewRole ?? { isSuperAdmin: fallback.isSuperAdmin, permissions: fallback.permissions as ReviewPermission[], homeOrganizationId: null };
+                    const manageable = canManageUsers && mayGrant(profile, current);
+                    const roleName = u.reviewRole?.name ?? fallback.name;
+                    return (
+                      <tr key={u.id}>
+                        <td>
+                          <div className="flex items-center gap-2.5">
+                            <Avatar name={u.name} />
+                            <div className="min-w-0 leading-tight">
+                              <p className="truncate font-medium text-foreground">{u.name}</p>
+                              <p className="truncate text-metadata">{u.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <Badge variant={current.isSuperAdmin ? "neutral" : "brand"}>{roleName}</Badge>
+                        </td>
+                        <td className="text-muted-foreground">
+                          {u.department ? `${u.department.organization.name} · ${u.department.name}` : "-"}
+                        </td>
+                        <td className="text-muted-foreground">
+                          {account?.isActive ? (
+                            <span className="leading-tight">
+                              <span className="block text-foreground">{account.peopleRole}</span>
+                              {account.designation && <span className="block text-xs">{account.designation}</span>}
+                            </span>
+                          ) : (
+                            <span className="text-warning">No account</span>
+                          )}
+                        </td>
+                        <td>
+                          <ActiveBadge active={u.isActive} />
+                        </td>
+                        <td>
+                          <div className="row-actions flex justify-end gap-1">
+                            {manageable && (
+                              <>
+                                <UserDialog
+                                  organizations={organizations}
+                                  roles={assignable}
+                                  user={{
+                                    id: u.id,
+                                    name: u.name,
+                                    email: u.email,
+                                    roleId: u.reviewRoleId,
+                                    departmentId: u.department?.id ?? null,
+                                    organizationId: u.department?.organization.id ?? null,
+                                  }}
+                                />
+                                <ToggleActiveButton id={u.id} isActive={u.isActive} action={toggleUserActive} />
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+      </div>
     );
 
   return (
