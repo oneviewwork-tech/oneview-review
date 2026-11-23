@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { redirect } from "next/navigation";
@@ -117,6 +118,7 @@ export default async function ReviewsPage({
             empty={activeTab.empty}
             decide={activeTab.key === "waiting"}
             showNote={activeTab.key === "sent"}
+            viewerId={access.isStaff ? null : access.user.id}
           />
         </div>
       )}
@@ -130,6 +132,7 @@ function Section({
   empty,
   decide,
   showNote,
+  viewerId,
 }: {
   rows: TeamRow[];
   periodValue: string;
@@ -138,7 +141,35 @@ function Section({
   decide?: boolean;
   /** Show the reviewer's note (sent-back rows). */
   showNote?: boolean;
+  /**
+   * A Team Lead who oversees sub-teams (their own department head plus
+   * whoever those leads score in turn) otherwise gets every department
+   * member interleaved in one flat table, distinguishable only by scrolling
+   * the "Scored by" column - everyone is still shown (nothing is hidden),
+   * just grouped with the viewer's own direct team first, so "my people"
+   * and "the rest of the department" are easy to tell apart at a glance.
+   * Null for HR/Admin, who already filter by organization/department.
+   */
+  viewerId?: string | null;
 }) {
+  const groups: { key: string; label: string; rows: TeamRow[] }[] = [];
+  if (viewerId) {
+    const byScorer = new Map<string, { label: string; rows: TeamRow[] }>();
+    for (const r of rows) {
+      const g = byScorer.get(r.scorerUserId) ?? { label: r.scorerName, rows: [] };
+      g.rows.push(r);
+      byScorer.set(r.scorerUserId, g);
+    }
+    const mine = byScorer.get(viewerId);
+    if (mine) groups.push({ key: viewerId, label: "My team", rows: mine.rows });
+    for (const [key, g] of [...byScorer].sort((a, b) => a[1].label.localeCompare(b[1].label))) {
+      if (key !== viewerId) groups.push({ key, label: `${g.label}'s team`, rows: g.rows });
+    }
+  } else {
+    groups.push({ key: "all", label: "", rows });
+  }
+  const grouped = groups.length > 1;
+
   return (
     <section className="mt-3">
       {rows.length === 0 ? (
@@ -159,7 +190,16 @@ function Section({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {groups.map((g) => (
+                <Fragment key={g.key}>
+                  {grouped && (
+                    <tr className="bg-muted/40">
+                      <td colSpan={8} className="pl-6 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {g.label} · {g.rows.length}
+                      </td>
+                    </tr>
+                  )}
+                  {g.rows.map((r) => (
                 <tr key={r.employeeId}>
                   <td className="pl-6">
                     <Link href={`/performance/people/${r.employeeId}?period=${periodValue}`} className="flex items-center gap-2.5 hover:text-brand">
@@ -197,6 +237,8 @@ function Section({
                     </div>
                   </td>
                 </tr>
+                  ))}
+                </Fragment>
               ))}
             </tbody>
           </table>
