@@ -36,11 +36,14 @@ export default async function ReviewsPage({
   const scope = access.isStaff ? resolveScope(organizations, params) : {};
   const allRows = await getTeamRows(null, period, scope);
 
-  // HR and Admin see every submission; everyone else sees the ones they sent
-  // or are meant to review — nobody else's.
-  const rows = access.isStaff
-    ? allRows
-    : allRows.filter((r) => r.scorerUserId === access.user.id || r.reviewerUserId === access.user.id);
+  // HR and Admin see every submission; everyone else sees only the people
+  // they personally score - not the rest of their department, even when the
+  // scoring tree makes them the decision-chain reviewer for a sub-team
+  // several levels down (e.g. a department-wide Team Lead over several
+  // leads' teams). Those submissions still reach HR/Admin's own Reviews
+  // page (they see allRows unfiltered), so nothing goes undecided - this
+  // just stops one Team Lead's page from showing the whole department.
+  const rows = access.isStaff ? allRows : allRows.filter((r) => r.scorerUserId === access.user.id);
 
   const mine = rows.filter((r) => r.reviewState === "SUBMITTED" && mayDecide({ id: access.user.id, canDecideAny: access.canDecideAny }, r.reviewerUserId));
   const withReviewers = rows.filter((r) => r.reviewState === "SUBMITTED" && !mine.includes(r));
