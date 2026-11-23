@@ -48,8 +48,11 @@ export default async function ScoreTeamPage({
   const progress = new Map(teamRows.map((r) => [r.employeeId, r]));
   const requestedWeek = Number(query.week);
   // Weeks are Monday to Saturday and open in order; land on the one that
-  // needs scoring next, or the latest scored one if none is open.
-  const scoredWeeks = [...(data?.entries.keys() ?? [])];
+  // needs scoring next, or the latest scored one if none is open. "Scored"
+  // means every KPI has a value, not just one - a single field saved by
+  // accident shouldn't unlock the rest of the month.
+  const totalKpis = data?.version ? data.version.kras.flatMap((k) => k.kpis).length : 0;
+  const scoredWeeks = [...(data?.entries ?? new Map())].filter(([, kpis]) => kpis.size >= totalKpis && totalKpis > 0).map(([w]) => w);
   const calendar = weeksOf(period);
   const lockOf = (w: number) => weekLockReason(period, w, scoredWeeks);
   const nextOpen = calendar.find((w) => !scoredWeeks.includes(w.week) && !lockOf(w.week))?.week;

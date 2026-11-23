@@ -80,14 +80,20 @@ export async function saveWeekScores(
   if (Object.keys(fieldErrors).length > 0) return fail("Some scores are out of range.", fieldErrors);
 
   // Weeks go in order, Monday to Saturday: a week opens once it has started
-  // and the one before it is scored. Emptying a week is allowed only if no
-  // later week depends on it, so the record never ends up with a gap.
-  const scoredWeeks = new Set(
-    (await prisma.perfScore.findMany({ where: { employeeId, period }, distinct: ["week"], select: { week: true } })).map((s) => s.week)
-  );
-  const locked = weekLockReason(period, week, scoredWeeks);
+  // and the one before it has every KPI scored, not just some of them -
+  // otherwise a single field saved by accident would unlock the rest of the
+  // month. Emptying a week is still blocked by any later score at all
+  // (even a partial one), so the record never ends up with a gap.
+  const existingByWeek = new Map<number, Set<string>>();
+  for (const s of await prisma.perfScore.findMany({ where: { employeeId, period }, select: { week: true, kpiId: true } })) {
+    const ids = existingByWeek.get(s.week) ?? new Set<string>();
+    ids.add(s.kpiId);
+    existingByWeek.set(s.week, ids);
+  }
+  const completeWeeks = new Set([...existingByWeek].filter(([, ids]) => ids.size >= kpis.length).map(([w]) => w));
+  const locked = weekLockReason(period, week, completeWeeks);
   if (locked) return fail(locked);
-  if (entries.length === 0 && [...scoredWeeks].some((w) => w > week)) {
+  if (entries.length === 0 && [...existingByWeek.keys()].some((w) => w > week)) {
     return fail(`Week ${week} can't be left empty while later weeks have scores.`);
   }
 

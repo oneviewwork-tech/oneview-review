@@ -378,6 +378,29 @@ function WeekFields({
   }, [values, kpis]);
 
   const fieldErrors = state && !state.success ? state.fieldErrors : undefined;
+  const orderedIds = kras.flatMap((k) => k.kpis.map((p) => p.id));
+  const isLastWeek = nextWeek === null;
+  // Whether this week, as currently shown, has every KPI filled - the next
+  // week (or, on the last week, the month) only unlocks once this is true.
+  const allFilled = orderedIds.every((id) => (values[id] ?? "").trim() !== "");
+
+  // PageUp/PageDown on a number input natively jump the value by a large
+  // step (10x the arrow-key step in most browsers) - easy to trigger by
+  // accident and hard to notice, since it looks like a normal keystroke.
+  // Repurposed instead to jump between KPI fields, like a big scale across
+  // the whole scorecard: PageDown to the next one, PageUp to the previous,
+  // wherever it sits in the form (not just within the current KRA section).
+  const jumpField = (e: React.KeyboardEvent<HTMLInputElement>, delta: 1 | -1) => {
+    e.preventDefault();
+    const idx = orderedIds.indexOf(e.currentTarget.name.replace(/^value_/, ""));
+    const next = orderedIds[idx + delta];
+    if (!next) return;
+    const target = e.currentTarget.form?.elements.namedItem(`value_${next}`);
+    if (target instanceof HTMLInputElement) {
+      target.focus();
+      target.select();
+    }
+  };
 
   return (
     <form action={formAction} className="mt-6 space-y-6">
@@ -413,6 +436,10 @@ function WeekFields({
                       placeholder={k.mode === "RATING" ? `0–${formatPoints(k.maxPoints)}` : "actual"}
                       value={values[k.id] ?? ""}
                       onChange={(e) => setValues((prev) => ({ ...prev, [k.id]: e.target.value }))}
+                      onKeyDown={(e) => {
+                        if (e.key === "PageDown") jumpField(e, 1);
+                        else if (e.key === "PageUp") jumpField(e, -1);
+                      }}
                       aria-label={`${k.name} ${k.mode === "RATING" ? "points" : "measured value"}`}
                       aria-invalid={!!err}
                       className={cn(err && "border-destructive")}
@@ -427,6 +454,16 @@ function WeekFields({
         </section>
       ))}
 
+      {state?.success && isLastWeek && allFilled && (
+        <div className="animate-scale-in flex items-center gap-3 rounded-2xl bg-success-subtle p-4 text-success">
+          <CheckCircle2 className="size-8 shrink-0 animate-scale-in" />
+          <div className="animate-fade-up">
+            <p className="font-semibold">Score submitted successfully 🎉</p>
+            <p className="text-sm text-success/80">Every week this month is scored. Submit the month when you&apos;re ready.</p>
+          </div>
+        </div>
+      )}
+
       <div className="sticky bottom-0 -mx-5 -mb-5 flex flex-wrap items-center justify-between gap-3 rounded-b-xl border-t border-border bg-card px-5 py-3">
         <div className="flex items-center gap-3">
           <span className="text-metadata">Week {week} total</span>
@@ -435,10 +472,11 @@ function WeekFields({
         <div className="flex items-center gap-3">
           {state?.success && (
             <span className="flex items-center gap-1.5 text-sm text-success" role="status">
-              <CheckCircle2 className="size-4" /> {state.message}
+              <CheckCircle2 className="size-4" />
+              {allFilled ? state.message : `${state.message} Fill every field to unlock ${nextWeek ? `Week ${nextWeek}` : "the next week"}.`}
             </span>
           )}
-          {state?.success && nextWeek && (
+          {state?.success && nextWeek && allFilled && (
             <Button type="button" variant="outline" onClick={() => onNext(nextWeek)}>
               Next: Week {nextWeek} →
             </Button>
