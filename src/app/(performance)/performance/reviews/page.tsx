@@ -21,7 +21,7 @@ import { formatPeriodValue, formatReviewPeriod, parseReviewPeriod, selectablePer
 export default async function ReviewsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string; org?: string; department?: string; tab?: string }>;
+  searchParams: Promise<{ period?: string; org?: string; department?: string; tab?: string; view?: string }>;
 }) {
   const params = await searchParams;
   const periods = selectablePeriods(12);
@@ -36,14 +36,23 @@ export default async function ReviewsPage({
   const scope = access.isStaff ? resolveScope(organizations, params) : {};
   const allRows = await getTeamRows(null, period, scope);
 
-  // HR and Admin see every submission; everyone else sees only the people
-  // they personally score - not the rest of their department, even when the
-  // scoring tree makes them the decision-chain reviewer for a sub-team
-  // several levels down (e.g. a department-wide Team Lead over several
-  // leads' teams). Those submissions still reach HR/Admin's own Reviews
-  // page (they see allRows unfiltered), so nothing goes undecided - this
-  // just stops one Team Lead's page from showing the whole department.
-  const rows = access.isStaff ? allRows : allRows.filter((r) => r.scorerUserId === access.user.id);
+  // A Department Head's department: for the "My Team" / "Whole Department"
+  // toggle below. Only meaningful when other people in the same department
+  // are scored by someone other than them (sub-leads, e.g. Saheel over all
+  // of Academics) - otherwise "My Team" already is the whole department.
+  const myDeptName = organizations.flatMap((o) => o.departments).find((d) => d.id === access.user.departmentId)?.name;
+  const deptRows = myDeptName ? allRows.filter((r) => r.departmentName === myDeptName) : [];
+  const hasSubTeams = !access.isStaff && deptRows.some((r) => r.scorerUserId !== access.user.id);
+  const view = hasSubTeams && params.view === "department" ? "department" : "team";
+
+  // HR and Admin see every submission. A Department Head with sub-teams
+  // chooses between their own team and the whole department (both views
+  // show everyone in scope, including those scored by a sub-lead several
+  // levels down - the "Waiting for you" tab still only lets them decide
+  // what the scoring tree actually makes them the reviewer for). Anyone
+  // else - an ordinary Team Lead with no sub-teams - only ever has one
+  // team, so the toggle never appears and this is just their own people.
+  const rows = access.isStaff ? allRows : view === "department" ? deptRows : allRows.filter((r) => r.scorerUserId === access.user.id);
 
   const mine = rows.filter((r) => r.reviewState === "SUBMITTED" && mayDecide({ id: access.user.id, canDecideAny: access.canDecideAny }, r.reviewerUserId));
   const withReviewers = rows.filter((r) => r.reviewState === "SUBMITTED" && !mine.includes(r));
@@ -79,6 +88,33 @@ export default async function ReviewsPage({
         }
       />
 
+      {hasSubTeams && (
+        <nav className="mt-5 flex gap-2" aria-label="Scope">
+          {(
+            [
+              ["team", "My Team"],
+              ["department", `Whole Department${myDeptName ? ` (${myDeptName})` : ""}`],
+            ] as const
+          ).map(([key, label]) => {
+            const on = view === key;
+            const q = new URLSearchParams({ ...(params.period ? { period: params.period } : {}), view: key });
+            return (
+              <Link
+                key={key}
+                href={`/performance/reviews?${q.toString()}`}
+                aria-current={on ? "page" : undefined}
+                className={cn(
+                  "rounded-full px-4 py-2 text-sm font-medium shadow-sm transition-ui",
+                  on ? "bg-brand text-brand-foreground" : "bg-card text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+
       {rows.length === 0 ? (
         <EmptyState
           className="mt-8"
@@ -90,7 +126,7 @@ export default async function ReviewsPage({
           <nav className="no-scrollbar flex gap-2 overflow-x-auto" aria-label="Review status">
             {tabs.map((t) => {
               const on = t.key === activeTab.key;
-              const q = new URLSearchParams({ ...(params.period ? { period: params.period } : {}), ...(params.org ? { org: params.org } : {}), ...(params.department ? { department: params.department } : {}), tab: t.key });
+              const q = new URLSearchParams({ ...(params.period ? { period: params.period } : {}), ...(params.org ? { org: params.org } : {}), ...(params.department ? { department: params.department } : {}), ...(hasSubTeams ? { view } : {}), tab: t.key });
               return (
                 <Link
                   key={t.key}
