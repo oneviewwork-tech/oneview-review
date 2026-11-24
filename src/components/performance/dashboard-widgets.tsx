@@ -11,7 +11,7 @@ export function Panel({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 
 type Tone = "violet" | "pink" | "blue";
 const FILL: Record<Tone, string> = {
-  violet: "bg-gradient-to-r from-brand to-[#8b6dff] text-white",
+  violet: "bg-gradient-to-r from-brand to-[#5ca2ff] text-white",
   pink: "bg-gradient-to-r from-chart-pink to-[#fb8fc5] text-white",
   blue: "bg-gradient-to-r from-chart-blue to-[#a9c6ff] text-ink",
 };

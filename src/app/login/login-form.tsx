@@ -7,14 +7,15 @@ import { cn } from "@/lib/utils";
 import { authenticate } from "./actions";
 
 /**
- * Underlined fields rather than boxed ones: the form sits on plain white
- * with nothing else competing for attention, so a full border per field
- * would be more frame than it needs.
+ * Filled pills on a phone, where a tappable target wants a visible body,
+ * and underlines on desktop, where the form sits on plain white with
+ * nothing competing with it and a box per field is more frame than it
+ * needs. Same element either way - only the skin changes.
  */
 const FIELD =
-  "h-11 w-full border-0 border-b-2 border-input bg-transparent px-0 text-[15px] font-semibold text-foreground " +
-  "outline-none transition-colors placeholder:font-normal placeholder:text-muted-foreground/70 " +
-  "hover:border-muted-foreground/50 focus:border-brand";
+  "h-12 w-full rounded-2xl border border-border bg-card px-4 text-[14px] text-foreground outline-none transition " +
+  "placeholder:text-muted-foreground " +
+  "focus:border-brand focus:ring-4 focus:ring-brand/10";
 
 export function LoginForm() {
   const [errorMessage, formAction, isPending] = useActionState(authenticate, undefined);
@@ -25,9 +26,9 @@ export function LoginForm() {
     setCapsLock(e.getModifierState?.("CapsLock") ?? false);
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-5">
       <div>
-        <label htmlFor="email" className="text-[13px] font-medium text-muted-foreground">
+        <label htmlFor="email" className="sr-only">
           Work email
         </label>
         <input
@@ -37,16 +38,16 @@ export function LoginForm() {
           required
           autoFocus
           autoComplete="username"
-          placeholder="you@harisand.co"
-          className={cn(FIELD, "mt-1.5")}
+          placeholder="Work email"
+          className={FIELD}
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="text-[13px] font-medium text-muted-foreground">
+        <label htmlFor="password" className="sr-only">
           Password
         </label>
-        <div className="relative mt-1.5">
+        <div className="relative">
           <input
             id="password"
             name="password"
@@ -57,14 +58,14 @@ export function LoginForm() {
             onKeyUp={trackCaps}
             onKeyDown={trackCaps}
             aria-describedby={capsLock ? "caps-warning" : undefined}
-            className={cn(FIELD, "pr-10")}
+            className={cn(FIELD, "pr-12")}
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
-            className="absolute right-0 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-ui hover:bg-accent hover:text-foreground active:scale-95"
+            className="absolute right-1.5 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-ui hover:bg-accent hover:text-foreground active:scale-95"
           >
             {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </button>
@@ -96,17 +97,14 @@ export function LoginForm() {
         </p>
       )}
 
-      {/* The offset shadow is the reference's one piece of real character:
-          the button sits slightly proud of the page and presses into it. */}
       <Button
         type="submit"
         size="lg"
         loading={isPending}
         className={cn(
-          "group h-[52px] w-full rounded-xl text-[15px] font-bold",
-          "shadow-[4px_4px_0_0_var(--ink)] hover:bg-brand hover:shadow-[2px_2px_0_0_var(--ink)]",
-          "active:translate-x-[3px] active:translate-y-[3px] active:scale-100 active:shadow-none",
-          "motion-reduce:translate-x-0 motion-reduce:translate-y-0"
+          "group h-12 w-full rounded-2xl bg-gradient-to-b from-slate-800 to-slate-950 text-[14px] font-semibold text-white",
+          "shadow-[0_12px_24px_-12px_rgba(2,6,23,0.7)] transition hover:from-slate-700 hover:to-slate-900",
+          "disabled:opacity-60"
         )}
       >
         {isPending ? "Signing in…" : "Login To Your Account"}

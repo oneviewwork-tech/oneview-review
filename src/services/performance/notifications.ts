@@ -39,7 +39,7 @@ export function compose(input: { subject: string; heading: string; intro: string
 <h2 style="margin:0 0 12px;font-size:20px">${escapeHtml(input.heading)}</h2>
 <p style="margin:0 0 12px;line-height:1.5">${escapeHtml(input.intro)}</p>
 ${bullets.length ? `<ul style="margin:0 0 16px;padding-left:20px;line-height:1.6">${bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join("")}</ul>` : ""}
-${input.link ? `<p style="margin:20px 0 0"><a href="${escapeHtml(input.link.url)}" style="background:#5b3df5;color:#fff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold;display:inline-block">${escapeHtml(input.link.label)}</a></p>` : ""}
+${input.link ? `<p style="margin:20px 0 0"><a href="${escapeHtml(input.link.url)}" style="background:#0866ff;color:#fff;text-decoration:none;padding:10px 18px;border-radius:999px;font-weight:bold;display:inline-block">${escapeHtml(input.link.label)}</a></p>` : ""}
 <p style="margin:24px 0 0;font-size:12px;color:#6b6685">ONEVIEW Review · Haris&amp;Co. &amp; HACA</p>
 </td></tr></table></body></html>`;
 

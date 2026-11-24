@@ -98,7 +98,7 @@ function Count({ badges, href, dark, dot }: { badges: NavBadges | Promise<NavBad
 
 /**
  * The app's navigation, in the ONEVIEW family's floating-sidebar style (as in
- * ONEVIEW Ops): a white panel with a soft violet aurora, pill links, groups
+ * ONEVIEW Ops): a plain white panel, pill links, groups
  * that fold away with a tree line, and a collapsed icon rail. On phones it is
  * a compact top bar whose menu button slides the same panel in.
  *
@@ -186,9 +186,9 @@ export function AppSidebarLayout({
           wide ? cn("gap-3", nested ? "px-3.5 py-2 text-[13px]" : "px-4 py-2.5 text-[14px]") : "mx-auto size-11 justify-center",
           active
             ? nested && wide
-              ? "bg-gradient-to-r from-fuchsia-100 to-violet-200 font-semibold text-ink"
-              : "bg-gradient-to-b from-[#2f2470] to-ink font-semibold text-white shadow-[0_8px_18px_-8px_rgba(42,26,110,0.75)]"
-            : "font-medium text-foreground/75 hover:bg-violet-500/[0.08] hover:text-foreground"
+              ? "bg-brand-subtle font-semibold text-ink"
+              : "bg-gradient-to-b from-slate-800 to-ink font-semibold text-white shadow-[0_8px_18px_-8px_rgba(15,23,42,0.55)]"
+            : "font-medium text-foreground/75 hover:bg-brand/[0.08] hover:text-foreground"
         )}
       >
         {(!nested || !wide) && <Icon className={cn("size-[19px] shrink-0", active ? "text-white" : "text-muted-foreground group-hover:text-foreground")} strokeWidth={1.75} />}
@@ -300,7 +300,7 @@ export function AppSidebarLayout({
             type="button"
             onClick={() => write(EXPANDED_KEY, "true")}
             title={`Organization: ${orgSwitch.options.find((o) => o.id === orgSwitch.selected)?.name ?? "All organizations"}`}
-            className="mx-auto mt-3 flex size-11 shrink-0 items-center justify-center rounded-full bg-white/70 text-muted-foreground ring-1 ring-violet-500/10 hover:text-foreground"
+            className="mx-auto mt-3 flex size-11 shrink-0 items-center justify-center rounded-full bg-white/70 text-muted-foreground ring-1 ring-black/[0.06] hover:text-foreground"
           >
             <Building2 className="size-[18px]" strokeWidth={1.75} />
           </button>
@@ -317,7 +317,7 @@ export function AppSidebarLayout({
       {/* Footer: the signed-in person, then sign out. */}
       <div className={cn("shrink-0 space-y-2 border-t border-border/70", wide ? "p-3" : "px-2 py-3")}>
         {switcher && wide && <div className="flex justify-center">{switcher}</div>}
-        <div className={cn("flex items-center rounded-2xl bg-white/70 ring-1 ring-violet-500/10", wide ? "gap-2.5 p-2" : "mx-auto size-12 justify-center")} title={!wide ? `${userName} · ${userMeta}` : undefined}>
+        <div className={cn("flex items-center rounded-2xl bg-white/70 ring-1 ring-black/[0.06]", wide ? "gap-2.5 p-2" : "mx-auto size-12 justify-center")} title={!wide ? `${userName} · ${userMeta}` : undefined}>
           {userPhoto ? (
             // eslint-disable-next-line @next/next/no-img-element -- our own authed thumbnail route
             <img src={userPhoto} alt="" className="size-8 shrink-0 rounded-full object-cover ring-2 ring-white" />
@@ -336,7 +336,7 @@ export function AppSidebarLayout({
             type="submit"
             title={`Sign out (${userName})`}
             className={cn(
-              "flex items-center rounded-2xl bg-white/70 text-muted-foreground ring-1 ring-violet-500/10 transition-colors hover:text-destructive",
+              "flex items-center rounded-2xl bg-white/70 text-muted-foreground ring-1 ring-black/[0.06] transition-colors hover:text-destructive",
               wide ? "w-full justify-center gap-2.5 px-3 py-3 text-[13.5px] font-medium" : "mx-auto size-12 justify-center"
             )}
           >

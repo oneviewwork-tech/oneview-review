@@ -93,6 +93,12 @@ export async function saveWeekScores(
   const completeWeeks = new Set([...existingByWeek].filter(([, ids]) => ids.size >= kpis.length).map(([w]) => w));
   const locked = weekLockReason(period, week, completeWeeks);
   if (locked) return fail(locked);
+  // Nothing typed and nothing already saved for this week: this is a stray
+  // click on an untouched form, not an intentional "clear everything I
+  // entered" save, so say so instead of recording an empty week as 0/100.
+  if (entries.length === 0 && !existingByWeek.has(week)) {
+    return fail("Enter at least one score before saving.");
+  }
   if (entries.length === 0 && [...existingByWeek.keys()].some((w) => w > week)) {
     return fail(`Week ${week} can't be left empty while later weeks have scores.`);
   }
