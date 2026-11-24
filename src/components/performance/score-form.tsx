@@ -3,7 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Lock, Undo2 } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, Lock, Undo2 } from "lucide-react";
 import { ReviewStatusBadge } from "@/components/performance/review-status-badge";
 import { SubmitMonthButton } from "@/components/performance/workflow-actions";
 import { REVIEW_STATE_LABEL, canEditScores, canSubmit, type ReviewState } from "@/domain/performance/workflow";
@@ -384,18 +384,20 @@ function WeekFields({
   // week (or, on the last week, the month) only unlocks once this is true.
   const allFilled = orderedIds.every((id) => (values[id] ?? "").trim() !== "");
 
-  // PageUp/PageDown on a number input natively jump the value by a large
-  // step (10x the arrow-key step in most browsers) - easy to trigger by
-  // accident and hard to notice, since it looks like a normal keystroke.
-  // Repurposed instead to jump between KPI fields, like a big scale across
-  // the whole scorecard: PageDown to the next one, PageUp to the previous,
-  // wherever it sits in the form (not just within the current KRA section).
-  const jumpField = (e: React.KeyboardEvent<HTMLInputElement>, delta: 1 | -1) => {
-    e.preventDefault();
-    const idx = orderedIds.indexOf(e.currentTarget.name.replace(/^value_/, ""));
+  // The field's own up/down spinner (the small arrows a number input draws
+  // inside itself) steps the value by click, not just by keyboard - the
+  // original complaint was clicking those arrows, which easy to brush
+  // against while moving between fields and hard to notice happened.
+  // Hidden via CSS below and replaced with custom up/down arrows that jump
+  // to the previous/next KPI field instead, like a big scale across the
+  // whole scorecard rather than within one field. PageUp/PageDown and Enter
+  // do the same jump from the keyboard, so nothing changes the value by
+  // accident from any of the ways someone might reach for "next field".
+  const jumpField = (from: HTMLInputElement, delta: 1 | -1) => {
+    const idx = orderedIds.indexOf(from.name.replace(/^value_/, ""));
     const next = orderedIds[idx + delta];
     if (!next) return;
-    const target = e.currentTarget.form?.elements.namedItem(`value_${next}`);
+    const target = from.form?.elements.namedItem(`value_${next}`);
     if (target instanceof HTMLInputElement) {
       target.focus();
       target.select();
@@ -426,6 +428,7 @@ function WeekFields({
                     </p>
                   </div>
                   <div>
+                  <div className="relative">
                     <Input
                       name={`value_${k.id}`}
                       type="number"
@@ -437,13 +440,42 @@ function WeekFields({
                       value={values[k.id] ?? ""}
                       onChange={(e) => setValues((prev) => ({ ...prev, [k.id]: e.target.value }))}
                       onKeyDown={(e) => {
-                        if (e.key === "PageDown") jumpField(e, 1);
-                        else if (e.key === "PageUp") jumpField(e, -1);
+                        // Enter would otherwise submit the whole week as-is,
+                        // even with other fields still blank - jump to the
+                        // next field instead, same as PageDown.
+                        if (e.key === "PageDown" || e.key === "Enter") { e.preventDefault(); jumpField(e.currentTarget, 1); }
+                        else if (e.key === "PageUp") { e.preventDefault(); jumpField(e.currentTarget, -1); }
                       }}
                       aria-label={`${k.name} ${k.mode === "RATING" ? "points" : "measured value"}`}
                       aria-invalid={!!err}
-                      className={cn(err && "border-destructive")}
+                      className={cn(
+                        "pr-7 [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                        err && "border-destructive"
+                      )}
                     />
+                    {/* Replaces the native spinner (which changed the value on click, the
+                        original complaint) with arrows that move between fields instead. */}
+                    <div className="absolute inset-y-0 right-1 flex flex-col justify-center">
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-label={`Go to the previous field`}
+                        onClick={(e) => jumpField(e.currentTarget.parentElement!.parentElement!.querySelector("input")!, -1)}
+                        className="flex h-4 w-5 items-center justify-center rounded-t text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <ChevronUp className="size-3" />
+                      </button>
+                      <button
+                        type="button"
+                        tabIndex={-1}
+                        aria-label={`Go to the next field`}
+                        onClick={(e) => jumpField(e.currentTarget.parentElement!.parentElement!.querySelector("input")!, 1)}
+                        className="flex h-4 w-5 items-center justify-center rounded-b text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <ChevronDown className="size-3" />
+                      </button>
+                    </div>
+                  </div>
                     {err && <p className="mt-1 text-xs text-destructive">{err}</p>}
                   </div>
                   <Input name={`remark_${k.id}`} defaultValue={k.remark ?? ""} placeholder="Remark (optional)" maxLength={500} aria-label={`${k.name} remark`} />
