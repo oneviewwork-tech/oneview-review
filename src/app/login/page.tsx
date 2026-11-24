@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { AlertCircle, ArrowUpRight, CheckCircle2, KeyRound, TrendingUp, Users } from "lucide-react";
+import { AlertCircle, ArrowUpRight, CheckCircle2, MoreHorizontal } from "lucide-react";
 import { LoginForm } from "./login-form";
 
 /** People's own sign-in hands the employee straight over (see /sso). */
@@ -14,6 +14,25 @@ const SSO_ERRORS: Record<string, string> = {
   inactive: "Your account isn't active in ONEVIEW Review. Contact your HR team.",
 };
 
+/** The faint isometric texture behind the showcase panel. */
+const PATTERN = {
+  backgroundImage:
+    "linear-gradient(30deg, rgb(91 61 245 / 0.05) 12%, transparent 12.5%, transparent 87%, rgb(91 61 245 / 0.05) 87.5%, rgb(91 61 245 / 0.05))," +
+    "linear-gradient(150deg, rgb(91 61 245 / 0.05) 12%, transparent 12.5%, transparent 87%, rgb(91 61 245 / 0.05) 87.5%, rgb(91 61 245 / 0.05))," +
+    "linear-gradient(30deg, rgb(91 61 245 / 0.05) 12%, transparent 12.5%, transparent 87%, rgb(91 61 245 / 0.05) 87.5%, rgb(91 61 245 / 0.05))," +
+    "linear-gradient(150deg, rgb(91 61 245 / 0.05) 12%, transparent 12.5%, transparent 87%, rgb(91 61 245 / 0.05) 87.5%, rgb(91 61 245 / 0.05))",
+  backgroundSize: "48px 84px",
+  backgroundPosition: "0 0, 0 0, 24px 42px, 24px 42px",
+};
+
+const WEEK_BARS = [
+  { label: "W1", height: 44, on: false },
+  { label: "W2", height: 28, on: false },
+  { label: "W3", height: 62, on: true },
+  { label: "W4", height: 36, on: false },
+  { label: "W5", height: 20, on: false },
+];
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -23,138 +42,166 @@ export default async function LoginPage({
   const handoff = peopleHandoffUrl();
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eceaf8] px-4 py-8 sm:px-8">
-      {/* Soft colour wash behind the frosted frame. */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(40rem circle at 12% 18%, rgba(139,109,255,0.45), transparent 60%)," +
-            "radial-gradient(36rem circle at 88% 12%, rgba(244,114,182,0.32), transparent 60%)," +
-            "radial-gradient(42rem circle at 70% 95%, rgba(96,165,250,0.35), transparent 60%)",
-        }}
-      />
-
-      <div className="relative grid w-full max-w-[1080px] gap-3 rounded-[2.25rem] border border-white/70 bg-white/45 p-3 shadow-[0_30px_80px_-30px_rgba(42,26,110,0.35)] backdrop-blur-2xl lg:grid-cols-2">
-        {/* ── Visual panel ─────────────────────────────────────────── */}
-        <aside className="relative hidden min-h-[560px] overflow-hidden rounded-[1.75rem] p-8 lg:flex lg:flex-col lg:justify-between">
-          <div
-            aria-hidden
-            className="absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(28rem circle at 20% 10%, #a78bfa 0%, transparent 60%)," +
-                "radial-gradient(26rem circle at 95% 35%, #f9a8d4 0%, transparent 55%)," +
-                "radial-gradient(30rem circle at 30% 100%, #bfdbfe 0%, transparent 60%)," +
-                "linear-gradient(160deg, #c4b5fd 0%, #e9d5ff 45%, #dbeafe 100%)",
-            }}
-          />
-
-          <div className="relative flex items-center gap-2.5">
-            <Image src="/oneview-review-mark.png" alt="" width={36} height={36} priority className="size-9 rounded-xl shadow-sm" />
-            <span className="text-sm font-bold tracking-tight text-ink">
-              Haris&amp;Co. <span className="text-ink/40">&times;</span> HACA
-            </span>
-          </div>
-
-          {/* Wordmark with a glass orb resting on it. */}
-          <div className="relative -mx-2 select-none" aria-hidden>
-            <p className="text-[5.4rem] font-black uppercase leading-[0.85] tracking-[-0.06em] text-white">ONEVIEW</p>
-            <p className="mt-1 pl-1 text-right text-sm font-semibold uppercase tracking-[0.5em] text-white/90">Review</p>
-            <div
-              className="absolute left-[46%] top-[-2.5rem] size-36 rounded-full"
-              style={{
-                background:
-                  "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0) 22%)," +
-                  "radial-gradient(circle at 50% 50%, rgba(244,114,182,0.85) 0%, rgba(167,139,250,0.75) 55%, rgba(45,212,191,0.65) 100%)",
-                boxShadow: "inset -10px -18px 30px rgba(91,61,245,0.35), inset 8px 10px 20px rgba(255,255,255,0.6), 0 24px 50px -12px rgba(91,61,245,0.45)",
-                backdropFilter: "blur(6px)",
-              }}
-            />
-          </div>
-
-          <div className="relative">
-            <h1 className="text-[1.65rem] font-bold leading-tight tracking-tight text-ink">Performance &amp; feedback, together</h1>
-            <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-ink/70">
-              Score your team week by week, confirm results, and send feedback, all in one place for Haris&amp;Co. and HACA.
-            </p>
-          </div>
-        </aside>
-
-        {/* ── Sign-in column ───────────────────────────────────────── */}
-        <div className="flex flex-col gap-3">
-          <main className="flex flex-1 items-center rounded-[1.75rem] border border-white/80 bg-white/70 px-6 py-10 sm:px-12">
-            <div className="mx-auto w-full max-w-[380px] animate-fade-up">
-              <span className="flex size-12 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-                <Image src="/oneview-review-mark.png" alt="" width={28} height={28} priority className="size-7 rounded-lg" />
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-6 sm:px-8 sm:py-10">
+      <div className="grid w-full max-w-[1200px] overflow-hidden rounded-[2rem] bg-card shadow-[0_30px_80px_-40px_rgb(42_26_110_/_0.45)] lg:grid-cols-2">
+        {/* ── Sign-in panel ────────────────────────────────────────── */}
+        <div className="flex flex-col px-7 py-9 sm:px-12 sm:py-11">
+          <header className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <span className="flex items-center gap-2.5">
+              <Image src="/oneview-review-mark.png" alt="" width={32} height={32} priority className="size-8 rounded-lg" />
+              <span className="text-lg font-black tracking-tight">
+                ONEVIEW <span className="font-semibold text-muted-foreground">Review</span>
               </span>
+            </span>
+            <span className="text-sm text-muted-foreground">Haris&amp;Co. &middot; HACA</span>
+          </header>
 
-              <h2 className="mt-6 text-[1.9rem] font-bold tracking-tight">Welcome back</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Sign in to ONEVIEW Review.</p>
-
-              <p className="mt-4 flex items-start gap-2 rounded-xl bg-brand-subtle px-3 py-2.5 text-[13px] text-ink">
-                <KeyRound className="mt-0.5 size-4 shrink-0 text-brand" />
-                <span>
-                  Use the <strong>same email and password as ONEVIEW People</strong>. There&apos;s no separate Review password.
-                </span>
-              </p>
+          <main className="flex flex-1 flex-col justify-center py-10">
+            <div className="animate-fade-up mx-auto w-full max-w-[420px]">
+              <h1 className="text-[clamp(1.9rem,4vw,2.6rem)] font-black leading-[1.1] tracking-tight">
+                Login to Your Account!
+              </h1>
 
               {passwordChanged && (
-                <p role="status" className="mt-4 flex items-center gap-2 rounded-xl border border-success/25 bg-success-subtle px-3 py-2.5 text-sm text-success">
+                <p role="status" className="mt-5 flex items-center gap-2 rounded-xl border border-success/25 bg-success-subtle px-3 py-2.5 text-sm text-success">
                   <CheckCircle2 className="size-4 shrink-0" />
                   Password updated. Sign in with your new password.
                 </p>
               )}
               {sso && (
-                <p role="alert" className="mt-4 flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive-subtle px-3 py-2.5 text-sm text-destructive">
+                <p role="alert" className="mt-5 flex items-start gap-2 rounded-xl border border-destructive/25 bg-destructive-subtle px-3 py-2.5 text-sm text-destructive">
                   <AlertCircle className="mt-0.5 size-4 shrink-0" />
                   {SSO_ERRORS[sso] ?? SSO_ERRORS.invalid}
                 </p>
               )}
 
-              <div className="mt-6">
-                <LoginForm />
-              </div>
-
               {handoff && (
                 <>
-                  <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="h-px flex-1 bg-border" />
-                    Or continue with
-                    <span className="h-px flex-1 bg-border" />
-                  </div>
                   <a
                     href={handoff}
-                    className="group flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-white text-sm font-semibold shadow-xs transition-ui hover:border-brand/40 hover:bg-brand-subtle"
+                    className="group mt-7 flex h-[52px] w-full items-center justify-center gap-2 rounded-xl bg-ink text-[15px] font-bold text-ink-foreground shadow-[4px_4px_0_0_var(--brand)] transition-ui hover:shadow-[2px_2px_0_0_var(--brand)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
                   >
-                    ONEVIEW People
-                    <ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    Continue with ONEVIEW People
+                    <ArrowUpRight className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
                   </a>
+                  <p className="mt-2.5 text-center text-xs text-muted-foreground">
+                    Already signed in to People? This brings you straight in.
+                  </p>
+
+                  <div className="my-7 flex items-center gap-3 text-xs font-semibold tracking-wide text-muted-foreground">
+                    <span className="h-px flex-1 bg-border" />
+                    - OR -
+                    <span className="h-px flex-1 bg-border" />
+                  </div>
                 </>
               )}
 
-              <p className="mt-6 text-center text-xs text-muted-foreground">Trouble signing in? Contact your HR team.</p>
+              <div className={handoff ? "" : "mt-7"}>
+                <LoginForm />
+              </div>
+
+              <p className="mt-6 text-sm text-muted-foreground">
+                Don&apos;t have an account? <span className="font-bold text-foreground">Ask your HR team</span>
+              </p>
             </div>
           </main>
 
-          {/* Bottom strip, as in the family's other apps. */}
-          <div className="flex items-center gap-3 rounded-[1.5rem] border border-white/80 bg-white/70 px-5 py-4">
-            <div className="flex -space-x-2">
-              {/* People and Review: one account across both. */}
-              <span className="flex size-9 items-center justify-center rounded-full bg-sky-400 text-white ring-2 ring-white">
-                <Users className="size-4" />
-              </span>
-              <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-br from-brand to-chart-pink text-white ring-2 ring-white">
-                <TrendingUp className="size-4" />
-              </span>
+          <footer className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <span>Same login as ONEVIEW People</span>
+            <span aria-hidden className="text-border">|</span>
+            <span>No separate Review password</span>
+          </footer>
+        </div>
+
+        {/* ── Showcase panel ───────────────────────────────────────── */}
+        <aside aria-hidden className="relative hidden min-h-[660px] overflow-hidden bg-surface-sunken lg:block">
+          <div className="absolute inset-0" style={PATTERN} />
+
+          <div className="absolute right-8 top-9 flex items-center gap-5 text-sm font-medium text-muted-foreground">
+            <span>Performance</span>
+            <span>Feedback</span>
+            <span className="font-semibold text-foreground">Reviews</span>
+          </div>
+
+          {/* Week scoring, with the team who still owe a score. */}
+          <div className="absolute right-7 top-[22%] w-[320px] rounded-2xl bg-card p-5 shadow-[0_20px_50px_-24px_rgb(42_26_110_/_0.45)]">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground">16 – 21 Nov</p>
+                <p className="mt-0.5 text-lg font-bold tracking-tight">Week 3 scoring</p>
+              </div>
+              <MoreHorizontal className="size-5 text-muted-foreground" />
             </div>
-            <div className="leading-tight">
-              <p className="text-sm font-semibold">One login for ONEVIEW People &amp; Review</p>
-              <p className="text-xs text-muted-foreground">Already signed in to People? Open Performance there to come straight in.</p>
+            <div className="mt-4 flex items-center justify-between">
+              <div className="flex -space-x-2.5">
+                {["AN", "SK", "RP"].map((initials, i) => (
+                  <span
+                    key={initials}
+                    className={[
+                      "flex size-10 items-center justify-center rounded-full text-xs font-bold text-white ring-[3px] ring-card",
+                      ["bg-brand", "bg-chart-pink", "bg-chart-blue"][i],
+                    ].join(" ")}
+                  >
+                    {initials}
+                  </span>
+                ))}
+              </div>
+              <span className="flex size-12 items-center justify-center rounded-full bg-brand text-sm font-bold text-brand-foreground">
+                +8
+              </span>
             </div>
           </div>
-        </div>
+
+          {/* The month's confirmed score, as the scorecard shows it. */}
+          <div className="absolute left-[14%] top-[40%] w-[330px] rounded-2xl bg-ink p-6 text-ink-foreground shadow-[0_26px_60px_-24px_rgb(42_26_110_/_0.6)]">
+            <span className="flex size-7 items-center justify-center rounded-full bg-brand/90">
+              <span className="size-3 rounded-full bg-ink-foreground" />
+            </span>
+            <p className="mt-5 text-[2.1rem] font-black leading-none tracking-tight">86.2</p>
+            <p className="mt-1.5 text-sm text-ink-foreground/70">Month score · A &mdash; High Performer</p>
+            <div className="mt-6 flex items-center justify-between text-sm tracking-[0.3em] text-ink-foreground/60">
+              <span>W1 W2 W3</span>
+              <span className="tracking-normal text-ink-foreground">Nov 26</span>
+            </div>
+          </div>
+
+          {/* Week-by-week, the shape the dashboard draws. */}
+          <div className="absolute bottom-[23%] left-7 w-[260px] rounded-2xl bg-card p-5 shadow-[0_20px_50px_-24px_rgb(42_26_110_/_0.45)]">
+            <div className="flex h-[76px] items-end justify-between gap-2.5">
+              {WEEK_BARS.map((b) => (
+                <span
+                  key={b.label}
+                  style={{ height: `${b.height}px` }}
+                  className={["w-6 rounded-md", b.on ? "bg-brand" : "bg-muted"].join(" ")}
+                />
+              ))}
+            </div>
+            <div className="mt-2.5 flex justify-between text-xs text-muted-foreground">
+              {WEEK_BARS.map((b) => (
+                <span key={b.label} className={b.on ? "font-bold text-foreground" : ""}>
+                  {b.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* What lands in the bell when a month is confirmed. */}
+          <div className="absolute bottom-8 right-7 w-[360px] rounded-2xl bg-card p-5 shadow-[0_20px_50px_-24px_rgb(42_26_110_/_0.45)]">
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 items-center justify-center rounded-full bg-ink text-sm font-black text-ink-foreground">R</span>
+              <p className="flex-1 font-bold tracking-tight">ONEVIEW Review</p>
+              <p className="text-xs text-muted-foreground">2 min ago</p>
+            </div>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Week 3 is confirmed and on its way to HR. 🎉
+            </p>
+            <div className="mt-4 border-t border-border pt-3 text-right">
+              <span className="inline-flex items-center rounded-lg bg-brand px-4 py-2 text-xs font-bold text-brand-foreground">
+                Open Review
+              </span>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );
